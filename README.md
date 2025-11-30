@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Twitch Combo Overlay
 
-## Getting Started
+A browser-based overlay for Twitch streams that tracks and displays combo redemptions (bit cheers). Built with Next.js for use with OBS Browser Source.
 
-First, run the development server:
+## Features
+
+- **Hearts Counter** - Displays a running total of heart combo redemptions in the bottom left
+- **Falling Horseluls** - Physics-based falling emotes that pile up on screen when horselul combos are redeemed
+- **7TV Emote Support** - Customizable emotes via 7TV emote IDs
+- **User Tracking** - Tracks who sent each combo and displays leaderboards
+- **Persistent Storage** - Data persists in localStorage across page refreshes
+- **Dev Mode** - Test functionality without real bit cheers
+
+## Setup
+
+### 1. Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Run Development Server
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Configure Your Overlay
 
-## Learn More
+1. Open [http://localhost:3000](http://localhost:3000) in your browser
+2. Enter your Twitch channel name
+3. Customize emote IDs (optional) - uses 7TV emote IDs
+4. Toggle display options for totals and user leaderboards
+5. Copy the generated overlay URL
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Add to OBS
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Add a **Browser Source** in OBS
+2. Paste the overlay URL (e.g., `http://localhost:3000/yourchannel?showTotals=true`)
+3. Set dimensions to match your stream (e.g., 1920x1080)
+4. The transparent background will integrate seamlessly with your stream
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## URL Parameters
 
-## Deploy on Vercel
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `emoteId` | 7TV emote ID for falling objects (horselul) | `01FDTEQJJR000CM9KGHJPMM7N6` |
+| `heartEmoteId` | 7TV emote ID for heart counter icon | `01HNK8DGF0000FG935RNS75APG` |
+| `showTotals` | Show total combo counts | `false` |
+| `showUsers` | Show user leaderboard | `false` |
+| `dev` | Enable dev mode with test controls | `false` |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Combo Detection
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The overlay detects Twitch combo redemptions via IRC USERNOTICE messages with:
+- `msg-id=onetapgiftredeemed`
+- `msg-param-gift-id=heart` or `msg-param-gift-id=horselul`
+
+### Dev Mode Testing
+
+With `?dev=true` in the URL:
+- Use the on-screen controls to simulate combos
+- Type `#heart` or `#horselul` in chat to trigger test events
+- Test with raw IRC message format via the "Test Raw IRC" buttons
+
+## Tech Stack
+
+- **Next.js 15** - React framework
+- **tmi.js** - Twitch IRC client
+- **matter-js** - 2D physics engine
+- **7TV CDN** - Animated emote hosting
+- **Tailwind CSS** - Styling
+
+## Development
+
+```bash
+# Run dev server
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
+```
+
+## License
+
+MIT

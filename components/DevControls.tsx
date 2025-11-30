@@ -5,6 +5,7 @@ import type { ComboType } from "@/hooks/useTwitchChat";
 
 interface DevControlsProps {
   onSimulate: (type: ComboType, username: string, color: string | null) => void;
+  onSimulateRaw?: (rawMessage: string) => void;
   onClear: () => void;
   heartsTotal: number;
   horselulTotal: number;
@@ -24,6 +25,7 @@ const PRESET_COLORS = [
 
 export function DevControls({
   onSimulate,
+  onSimulateRaw,
   onClear,
   heartsTotal,
   horselulTotal,
@@ -135,6 +137,24 @@ export function DevControls({
           <span>Horseluls: {horselulTotal}</span>
         </div>
       </div>
+
+      {/* Test Raw IRC button */}
+      {onSimulateRaw && (
+        <button
+          onClick={() => onSimulateRaw("@badge-info=founder/15;badges=founder/0;color=#00FF7F;display-name=TestUser;msg-id=onetapgiftredeemed;msg-param-bits-spent=5;msg-param-gift-id=heart;msg-param-user-display-name=TestUser :tmi.twitch.tv USERNOTICE #test")}
+          className="mb-2 w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-amber-500"
+        >
+          🧪 Test Raw IRC (Heart)
+        </button>
+      )}
+      {onSimulateRaw && (
+        <button
+          onClick={() => onSimulateRaw("@badge-info=founder/15;badges=founder/0;color=#8A2BE2;display-name=TestUser;msg-id=onetapgiftredeemed;msg-param-bits-spent=50;msg-param-gift-id=horselul;msg-param-user-display-name=TestUser :tmi.twitch.tv USERNOTICE #test")}
+          className="mb-4 w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-amber-500"
+        >
+          🧪 Test Raw IRC (Horselul)
+        </button>
+      )}
 
       {/* Clear button */}
       <button

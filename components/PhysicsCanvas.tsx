@@ -11,6 +11,7 @@ export interface SpawnRequest {
 interface PhysicsCanvasProps {
   imageUrl: string;
   spawnQueue: SpawnRequest[];
+  clearKey: number; // Increment to clear all horses
 }
 
 interface BodyData {
@@ -64,7 +65,7 @@ function hexToHue(hex: string): number {
   return hue;
 }
 
-export function PhysicsCanvas({ imageUrl, spawnQueue }: PhysicsCanvasProps) {
+export function PhysicsCanvas({ imageUrl, spawnQueue, clearKey }: PhysicsCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Matter.Engine | null>(null);
   const runnerRef = useRef<Matter.Runner | null>(null);
@@ -209,6 +210,26 @@ export function PhysicsCanvas({ imageUrl, spawnQueue }: PhysicsCanvasProps) {
       }
     }
   }, [spawnQueue, spawnObject]);
+
+  // Clear all horses when clearKey changes
+  const prevClearKeyRef = useRef(clearKey);
+  useEffect(() => {
+    if (clearKey !== prevClearKeyRef.current) {
+      prevClearKeyRef.current = clearKey;
+      
+      // Remove all DOM elements
+      bodiesRef.current.forEach(({ body, element }) => {
+        element.remove();
+        if (engineRef.current) {
+          Matter.Composite.remove(engineRef.current.world, body);
+        }
+      });
+      
+      // Clear arrays
+      bodiesRef.current = [];
+      processedIdsRef.current.clear();
+    }
+  }, [clearKey]);
 
   return (
     <div

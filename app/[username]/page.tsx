@@ -32,6 +32,7 @@ export default function OverlayPage() {
   const showUsers = searchParams.get("showUsers") === "true";
 
   const [spawnQueue, setSpawnQueue] = useState<SpawnRequest[]>([]);
+  const [clearKey, setClearKey] = useState(0);
   const initialHorselulCountRef = useRef<number | null>(null);
 
   const { data, addCombo, clearStorage, heartsTotal, horselulTotal, isLoaded } =
@@ -71,7 +72,7 @@ export default function OverlayPage() {
     [addCombo]
   );
 
-  useTwitchChat({
+  const { simulateRawMessage } = useTwitchChat({
     channel: username,
     enabled: !!username, // Always connect to chat
     devMode: isDevMode,  // In dev mode, also listen for #horselul and #heart
@@ -88,6 +89,7 @@ export default function OverlayPage() {
   const handleClear = useCallback(() => {
     clearStorage();
     setSpawnQueue([]);
+    setClearKey((k) => k + 1); // Trigger horse removal
     initialHorselulCountRef.current = 0; // Prevent re-restoring
   }, [clearStorage]);
 
@@ -118,6 +120,7 @@ export default function OverlayPage() {
         <PhysicsCanvas
           imageUrl={horselulImage}
           spawnQueue={spawnQueue}
+          clearKey={clearKey}
         />
       )}
 
@@ -125,6 +128,7 @@ export default function OverlayPage() {
       {isDevMode && (
         <DevControls
           onSimulate={handleSimulate}
+          onSimulateRaw={simulateRawMessage}
           onClear={handleClear}
           heartsTotal={heartsTotal}
           horselulTotal={horselulTotal}
