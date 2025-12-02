@@ -12,9 +12,11 @@ interface UserHorsesProps {
   corner?: CornerPosition;
 }
 
-const BASE_SIZE = 80;
-const SIZE_INCREMENT = 80; // Each redemption adds this many pixels
-const MAX_DISPLAY_SIZE = 800; // Visual cap for sanity
+// Emote dimensions (64x26 aspect ratio = ~2.46:1)
+const EMOTE_ASPECT_RATIO = 64 / 26; // width / height
+const BASE_HEIGHT = 50;
+const HEIGHT_INCREMENT = 50; // Each redemption adds this many pixels to height
+const MAX_HEIGHT = 500; // Visual cap for sanity
 
 // Calculate contrasting text color (black or white) based on background
 function getContrastColor(hexColor: string): string {
@@ -65,7 +67,9 @@ function Horse({ username, data, isJumping, isNew, imageUrl }: HorseProps) {
     isNew ? "initial" : "landed"
   );
   
-  const size = Math.min(BASE_SIZE + (data.count - 1) * SIZE_INCREMENT, MAX_DISPLAY_SIZE);
+  // Calculate dimensions maintaining aspect ratio
+  const height = Math.min(BASE_HEIGHT + (data.count - 1) * HEIGHT_INCREMENT, MAX_HEIGHT);
+  const width = height * EMOTE_ASPECT_RATIO;
   const hue = hexToHue(data.color);
   const textColor = getContrastColor(data.color);
 
@@ -127,8 +131,8 @@ function Horse({ username, data, isJumping, isNew, imageUrl }: HorseProps) {
       {/* Horse image */}
       <div
         style={{
-          width: size,
-          height: size,
+          width,
+          height,
           filter: `hue-rotate(${hue}deg) saturate(1.5) brightness(1.1)`,
           transition: "width 0.3s ease-out, height 0.3s ease-out",
         }}
