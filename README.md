@@ -4,8 +4,10 @@ A browser-based overlay for Twitch streams that tracks and displays combo redemp
 
 ## Features
 
+- **User Horses Mode** - Each user gets their own persistent horse that grows with each redemption
+- **Falling Hearts Mode** - Hearts fall from top to bottom and disappear
+- **Falling Horseluls** - Physics-based falling emotes that pile up on screen (alternative mode)
 - **Hearts Counter** - Displays a running total of heart combo redemptions
-- **Falling Horseluls** - Physics-based falling emotes that pile up on screen
 - **7TV Emote Support** - Customizable emotes via 7TV emote IDs
 - **User Tracking** - Tracks who sent each combo and displays leaderboards
 - **Persistent Storage** - Data persists in localStorage across page refreshes
@@ -63,13 +65,33 @@ pnpm dev
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `emoteId` | 7TV emote ID for falling objects (horselul) | `01FDTEQJJR000CM9KGHJPMM7N6` |
-| `heartEmoteId` | 7TV emote ID for heart counter icon | `01HNK8DGF0000FG935RNS75APG` |
+| `emoteId` | 7TV emote ID for horselul emotes | `01FDTEQJJR000CM9KGHJPMM7N6` |
+| `heartEmoteId` | 7TV emote ID for heart emotes | `01HNK8DGF0000FG935RNS75APG` |
+| `userHorses` | User horses mode (each user gets a growing horse) | `true` |
+| `fallingHearts` | Falling hearts mode (hearts fall and disappear) | `true` |
 | `showTotals` | Show total combo counts | `false` |
 | `showUsers` | Show user leaderboard | `false` |
-| `size` | Horselul size: 1 (smallest) to 5 (largest) | `3` |
+| `size` | Emote size: 1 (smallest) to 5 (largest) | `3` |
 | `corner` | Stats position: `bl`, `tl`, `br`, `tr` | `bl` (bottom-left) |
 | `dev` | Enable dev mode with test controls | `false` |
+
+### Combo Modes
+
+**User Horses (`userHorses=true`):**
+- Each user gets their own horse positioned randomly in the bottom half
+- Horse displays user's Twitch color and username
+- Horse grows larger with each horselul redemption (no cap)
+- Jump animation when user redeems
+
+**Falling Hearts (`fallingHearts=true`):**
+- Hearts spawn at top of screen when redeemed
+- Fall to bottom and disappear
+- Colored based on user's Twitch color
+- Random sizes within the configured range
+
+**Classic Mode (`userHorses=false`):**
+- Horseluls fall and pile up using physics
+- Similar behavior to falling hearts but they stay on screen
 
 ### Corner Options
 

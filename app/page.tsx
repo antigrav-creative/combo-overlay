@@ -24,6 +24,8 @@ export default function SetupPage() {
   const [heartError, setHeartError] = useState(false);
   const [size, setSize] = useState(3);
   const [corner, setCorner] = useState<"bl" | "tl" | "br" | "tr">("bl");
+  const [userHorses, setUserHorses] = useState(true);
+  const [fallingHearts, setFallingHearts] = useState(true);
 
   // Default dev mode based on environment
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function SetupPage() {
   const heartUrl = get7TVUrl(heartEmoteId || DEFAULT_HEART_EMOTE_ID);
   
   const generatedUrl = channel
-    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${devMode ? "&dev=true" : ""}`
+    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!userHorses ? "&userHorses=false" : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
     : null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,6 +189,57 @@ export default function SetupPage() {
             <code className="text-zinc-400">7tv.app/emotes/[ID]</code>
           </p>
 
+          {/* Mode Options */}
+          <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+            <p className="text-sm font-medium text-zinc-400">Combo Modes</p>
+            
+            {/* User Horses Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-white">User Horses</p>
+                <p className="text-sm text-zinc-400">
+                  Each user gets their own horse that grows
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUserHorses(!userHorses)}
+                className={`relative h-7 w-12 rounded-full transition-colors ${
+                  userHorses ? "bg-purple-600" : "bg-zinc-600"
+                }`}
+              >
+                <span
+                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                    userHorses ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Falling Hearts Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-white">Falling Hearts</p>
+                <p className="text-sm text-zinc-400">
+                  Hearts fall from top and disappear
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFallingHearts(!fallingHearts)}
+                className={`relative h-7 w-12 rounded-full transition-colors ${
+                  fallingHearts ? "bg-purple-600" : "bg-zinc-600"
+                }`}
+              >
+                <span
+                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                    fallingHearts ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Display Options */}
           <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <p className="text-sm font-medium text-zinc-400">Display Options</p>
@@ -257,10 +310,10 @@ export default function SetupPage() {
               </select>
             </div>
 
-            {/* Horselul Size */}
+            {/* Emote Size */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-white">Horselul Size</p>
+                <p className="font-medium text-white">Emote Size</p>
                 <p className="text-sm text-zinc-400">
                   Overall size of falling emotes
                 </p>

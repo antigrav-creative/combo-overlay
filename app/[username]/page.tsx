@@ -8,6 +8,8 @@ import { HeartsCounter } from "@/components/HeartsCounter";
 import { PhysicsCanvas, type SpawnRequest } from "@/components/PhysicsCanvas";
 import { DevControls } from "@/components/DevControls";
 import { ComboStats } from "@/components/ComboStats";
+import { UserHorses } from "@/components/UserHorses";
+import { FallingHearts, type HeartSpawnRequest } from "@/components/FallingHearts";
 
 const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
 const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
@@ -47,19 +49,27 @@ export default function OverlayPage() {
   const sizeParam = parseInt(searchParams.get("size") || "3", 10);
   const sizeMultiplier = SIZE_MULTIPLIERS[sizeParam] ?? 1;
   const corner = (searchParams.get("corner") || "bl") as CornerPosition;
+  
+  // New modes (both on by default)
+  const userHorsesEnabled = searchParams.get("userHorses") !== "false";
+  const fallingHeartsEnabled = searchParams.get("fallingHearts") !== "false";
 
   const [spawnQueue, setSpawnQueue] = useState<SpawnRequest[]>([]);
+  const [heartSpawnQueue, setHeartSpawnQueue] = useState<HeartSpawnRequest[]>([]);
   const [clearKey, setClearKey] = useState(0);
+  const [lastHorseUpdate, setLastHorseUpdate] = useState<{ username: string; timestamp: number } | null>(null);
   const initialHorselulCountRef = useRef<number | null>(null);
 
-  const { data, addCombo, clearStorage, heartsTotal, horselulTotal, isLoaded } =
+  const { data, addCombo, updateUserHorse, clearStorage, heartsTotal, horselulTotal, userHorses, isLoaded } =
     useComboStorage(username);
 
   // Clear all data helper
   const clearAllData = useCallback(() => {
     clearStorage();
     setSpawnQueue([]);
+    setHeartSpawnQueue([]);
     setClearKey((k) => k + 1);
+    setLastHorseUpdate(null);
     initialHorselulCountRef.current = 0;
   }, [clearStorage]);
 
@@ -137,13 +147,32 @@ export default function OverlayPage() {
       addCombo(event.type, event.username);
 
       if (event.type === "horselul") {
-        setSpawnQueue((prev) => [
-          ...prev,
-          { id: spawnIdCounter++, color: event.color },
-        ]);
+        // Original falling horseluls (if userHorses mode is off)
+        if (!userHorsesEnabled) {
+          setSpawnQueue((prev) => [
+            ...prev,
+            { id: spawnIdCounter++, color: event.color },
+          ]);
+        }
+        
+        // User horses mode - update user's horse
+        if (userHorsesEnabled) {
+          updateUserHorse(event.username, event.color || "#9147ff", corner);
+          setLastHorseUpdate({ username: event.username, timestamp: Date.now() });
+        }
+      }
+
+      if (event.type === "heart") {
+        // Falling hearts mode
+        if (fallingHeartsEnabled) {
+          setHeartSpawnQueue((prev) => [
+            ...prev,
+            { id: spawnIdCounter++, color: event.color },
+          ]);
+        }
       }
     },
-    [addCombo]
+    [addCombo, updateUserHorse, userHorsesEnabled, fallingHeartsEnabled, corner]
   );
 
   const { simulateRawMessage } = useTwitchChat({
@@ -187,12 +216,31 @@ export default function OverlayPage() {
         <HeartsCounter count={heartsTotal} imageUrl={heartImage} corner={corner} />
       )}
 
-      {/* Physics canvas for falling horseluls */}
-      {horselulImage && (
+      {/* Physics canvas for falling horseluls (only when userHorses is off) */}
+      {horselulImage && !userHorsesEnabled && (
         <PhysicsCanvas
           imageUrl={horselulImage}
           spawnQueue={spawnQueue}
           clearKey={clearKey}
+          sizeMultiplier={sizeMultiplier}
+        />
+      )}
+
+      {/* User horses mode */}
+      {horselulImage && userHorsesEnabled && (
+        <UserHorses
+          imageUrl={horselulImage}
+          userHorses={userHorses}
+          lastUpdate={lastHorseUpdate}
+          corner={corner}
+        />
+      )}
+
+      {/* Falling hearts */}
+      {heartImage && fallingHeartsEnabled && (
+        <FallingHearts
+          imageUrl={heartImage}
+          spawnQueue={heartSpawnQueue}
           sizeMultiplier={sizeMultiplier}
         />
       )}
