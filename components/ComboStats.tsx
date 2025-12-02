@@ -2,12 +2,22 @@
 
 import type { ComboStorage } from "@/hooks/useComboStorage";
 
+type CornerPosition = "bl" | "tl" | "br" | "tr";
+
+const CORNER_CLASSES: Record<CornerPosition, string> = {
+  bl: "bottom-8 left-8",
+  tl: "top-8 left-8",
+  br: "bottom-8 right-8",
+  tr: "top-8 right-8",
+};
+
 interface ComboStatsProps {
   data: ComboStorage;
   horselulImageUrl: string;
   heartImageUrl: string;
   showTotals: boolean;
   showUsers: boolean;
+  corner?: CornerPosition;
 }
 
 export function ComboStats({
@@ -16,6 +26,7 @@ export function ComboStats({
   heartImageUrl,
   showTotals,
   showUsers,
+  corner = "bl",
 }: ComboStatsProps) {
   if (!showTotals && !showUsers) return null;
 
@@ -29,7 +40,7 @@ export function ComboStats({
     .slice(0, 10); // Top 10
 
   return (
-    <div className="fixed bottom-8 left-8 z-50 flex flex-col gap-3">
+    <div className={`fixed ${CORNER_CLASSES[corner]} z-50 flex flex-col gap-3`}>
       {/* Totals */}
       {showTotals && (
         <div className="flex flex-col gap-2 rounded-2xl bg-black/60 px-5 py-4 backdrop-blur-sm">

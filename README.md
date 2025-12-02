@@ -4,11 +4,14 @@ A browser-based overlay for Twitch streams that tracks and displays combo redemp
 
 ## Features
 
-- **Hearts Counter** - Displays a running total of heart combo redemptions in the bottom left
-- **Falling Horseluls** - Physics-based falling emotes that pile up on screen when horselul combos are redeemed
+- **Hearts Counter** - Displays a running total of heart combo redemptions
+- **Falling Horseluls** - Physics-based falling emotes that pile up on screen
 - **7TV Emote Support** - Customizable emotes via 7TV emote IDs
 - **User Tracking** - Tracks who sent each combo and displays leaderboards
 - **Persistent Storage** - Data persists in localStorage across page refreshes
+- **Auto-Clear on Stream Start** - Clears data when stream goes live (via Twitch EventSub)
+- **Configurable Position** - Choose which corner to display stats
+- **Adjustable Size** - Scale the falling emotes up or down
 - **Dev Mode** - Test functionality without real bit cheers
 
 ## Setup
@@ -19,21 +22,37 @@ A browser-based overlay for Twitch streams that tracks and displays combo redemp
 pnpm install
 ```
 
-### 2. Run Development Server
+### 2. Configure Environment (Optional - for EventSub)
+
+Create a `.env.local` file for auto-clear on stream start:
+
+```env
+TWITCH_CLIENT_ID=your_client_id
+TWITCH_CLIENT_SECRET=your_client_secret
+TWITCH_EVENTSUB_SECRET=any_random_string
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Get credentials from [Twitch Developer Console](https://dev.twitch.tv/console/apps).
+
+> **Note:** EventSub requires a public HTTPS URL. It won't work on localhost but the overlay functions normally without it.
+
+### 3. Run Development Server
 
 ```bash
 pnpm dev
 ```
 
-### 3. Configure Your Overlay
+### 4. Configure Your Overlay
 
 1. Open [http://localhost:3000](http://localhost:3000) in your browser
 2. Enter your Twitch channel name
 3. Customize emote IDs (optional) - uses 7TV emote IDs
-4. Toggle display options for totals and user leaderboards
-5. Copy the generated overlay URL
+4. Adjust size and position options
+5. Toggle display options for totals and user leaderboards
+6. Copy the generated overlay URL
 
-### 4. Add to OBS
+### 5. Add to OBS
 
 1. Add a **Browser Source** in OBS
 2. Paste the overlay URL (e.g., `http://localhost:3000/yourchannel?showTotals=true`)
@@ -48,7 +67,26 @@ pnpm dev
 | `heartEmoteId` | 7TV emote ID for heart counter icon | `01HNK8DGF0000FG935RNS75APG` |
 | `showTotals` | Show total combo counts | `false` |
 | `showUsers` | Show user leaderboard | `false` |
+| `size` | Horselul size: 1 (smallest) to 5 (largest) | `3` |
+| `corner` | Stats position: `bl`, `tl`, `br`, `tr` | `bl` (bottom-left) |
 | `dev` | Enable dev mode with test controls | `false` |
+
+### Corner Options
+
+- `bl` - Bottom Left
+- `tl` - Top Left
+- `br` - Bottom Right
+- `tr` - Top Right
+
+### Size Scale
+
+| Value | Multiplier |
+|-------|------------|
+| 1 | 0.5x (smallest) |
+| 2 | 0.75x |
+| 3 | 1x (default) |
+| 4 | 1.5x |
+| 5 | 2x (largest) |
 
 ## Combo Detection
 
@@ -63,6 +101,37 @@ With `?dev=true` in the URL:
 - Type `#heart` or `#horselul` in chat to trigger test events
 - Test with raw IRC message format via the "Test Raw IRC" buttons
 
+## EventSub (Auto-Clear)
+
+When deployed to a public HTTPS URL, the overlay automatically clears all data when the stream goes live. This uses Twitch EventSub webhooks.
+
+### How it works:
+
+1. Overlay subscribes to `stream.online` events for the channel
+2. Twitch sends a webhook when the stream starts
+3. Server broadcasts to connected overlays via Server-Sent Events
+4. Overlays clear their data
+
+### Requirements:
+
+- Public HTTPS URL (Vercel, Railway, etc.)
+- Twitch Developer App credentials in `.env.local`
+- Update `NEXT_PUBLIC_APP_URL` to your production URL
+
+> **Local Development:** EventSub is automatically skipped on localhost. Use the "Clear All Data" button in dev mode instead.
+
+## Deployment
+
+### Vercel (Recommended)
+
+```bash
+npx vercel
+```
+
+After deploying:
+1. Update `NEXT_PUBLIC_APP_URL` in Vercel environment variables to your production URL
+2. Add your Twitch credentials to Vercel environment variables
+
 ## Tech Stack
 
 - **Next.js 15** - React framework
@@ -70,6 +139,7 @@ With `?dev=true` in the URL:
 - **matter-js** - 2D physics engine
 - **7TV CDN** - Animated emote hosting
 - **Tailwind CSS** - Styling
+- **Twitch EventSub** - Stream status webhooks
 
 ## Development
 

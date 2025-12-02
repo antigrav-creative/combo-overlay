@@ -2,12 +2,22 @@
 
 import { useEffect, useState } from "react";
 
+type CornerPosition = "bl" | "tl" | "br" | "tr";
+
+const CORNER_CLASSES: Record<CornerPosition, string> = {
+  bl: "bottom-8 left-8",
+  tl: "top-8 left-8",
+  br: "bottom-8 right-8",
+  tr: "top-8 right-8",
+};
+
 interface HeartsCounterProps {
   count: number;
   imageUrl: string;
+  corner?: CornerPosition;
 }
 
-export function HeartsCounter({ count, imageUrl }: HeartsCounterProps) {
+export function HeartsCounter({ count, imageUrl, corner = "bl" }: HeartsCounterProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [prevCount, setPrevCount] = useState(count);
 
@@ -25,7 +35,7 @@ export function HeartsCounter({ count, imageUrl }: HeartsCounterProps) {
   return (
     <div
       className={`
-        fixed bottom-8 left-8 z-50
+        fixed ${CORNER_CLASSES[corner]} z-50
         flex items-center gap-3
         rounded-2xl bg-black/60 backdrop-blur-sm
         px-6 py-4

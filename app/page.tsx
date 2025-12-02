@@ -22,6 +22,8 @@ export default function SetupPage() {
   const [showUsers, setShowUsers] = useState(false);
   const [horselulError, setHorselulError] = useState(false);
   const [heartError, setHeartError] = useState(false);
+  const [size, setSize] = useState(3);
+  const [corner, setCorner] = useState<"bl" | "tl" | "br" | "tr">("bl");
 
   // Default dev mode based on environment
   useEffect(() => {
@@ -34,7 +36,7 @@ export default function SetupPage() {
   const heartUrl = get7TVUrl(heartEmoteId || DEFAULT_HEART_EMOTE_ID);
   
   const generatedUrl = channel
-    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${devMode ? "&dev=true" : ""}`
+    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${devMode ? "&dev=true" : ""}`
     : null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -233,6 +235,47 @@ export default function SetupPage() {
                   }`}
                 />
               </button>
+            </div>
+
+            {/* Corner Position */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-white">Score Position</p>
+                <p className="text-sm text-zinc-400">
+                  Corner for stats display
+                </p>
+              </div>
+              <select
+                value={corner}
+                onChange={(e) => setCorner(e.target.value as "bl" | "tl" | "br" | "tr")}
+                className="rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+              >
+                <option value="bl">Bottom Left</option>
+                <option value="tl">Top Left</option>
+                <option value="br">Bottom Right</option>
+                <option value="tr">Top Right</option>
+              </select>
+            </div>
+
+            {/* Horselul Size */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-white">Horselul Size</p>
+                <p className="text-sm text-zinc-400">
+                  Overall size of falling emotes
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={size}
+                  onChange={(e) => setSize(parseInt(e.target.value, 10))}
+                  className="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-zinc-600 accent-purple-500"
+                />
+                <span className="w-8 text-center text-sm font-medium text-white">{size}</span>
+              </div>
             </div>
           </div>
 

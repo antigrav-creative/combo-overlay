@@ -12,6 +12,7 @@ interface PhysicsCanvasProps {
   imageUrl: string;
   spawnQueue: SpawnRequest[];
   clearKey: number; // Increment to clear all horses
+  sizeMultiplier?: number; // Overall size multiplier (0.5x to 2x)
 }
 
 interface BodyData {
@@ -65,7 +66,7 @@ function hexToHue(hex: string): number {
   return hue;
 }
 
-export function PhysicsCanvas({ imageUrl, spawnQueue, clearKey }: PhysicsCanvasProps) {
+export function PhysicsCanvas({ imageUrl, spawnQueue, clearKey, sizeMultiplier = 1 }: PhysicsCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Matter.Engine | null>(null);
   const runnerRef = useRef<Matter.Runner | null>(null);
@@ -139,7 +140,7 @@ export function PhysicsCanvas({ imageUrl, spawnQueue, clearKey }: PhysicsCanvasP
 
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
-    const scale = MIN_SCALE + Math.random() * (MAX_SCALE - MIN_SCALE);
+    const scale = (MIN_SCALE + Math.random() * (MAX_SCALE - MIN_SCALE)) * sizeMultiplier;
     const size = BASE_SIZE * scale;
     
     // Use user's color if available, otherwise random
@@ -199,7 +200,7 @@ export function PhysicsCanvas({ imageUrl, spawnQueue, clearKey }: PhysicsCanvasP
 
     containerRef.current.appendChild(element);
     bodiesRef.current.push({ body, element, hue, scale, maxY, stopped: false });
-  }, [imageUrl]);
+  }, [imageUrl, sizeMultiplier]);
 
   // Process spawn queue
   useEffect(() => {

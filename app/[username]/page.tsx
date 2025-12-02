@@ -12,6 +12,18 @@ import { ComboStats } from "@/components/ComboStats";
 const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
 const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
 
+// Size multiplier mapping (1-5 → 0.5x to 2x)
+const SIZE_MULTIPLIERS: Record<number, number> = {
+  1: 0.5,
+  2: 0.75,
+  3: 1,
+  4: 1.5,
+  5: 2,
+};
+
+// Corner position mapping
+export type CornerPosition = "bl" | "tl" | "br" | "tr";
+
 function get7TVUrl(emoteId: string): string {
   return `https://cdn.7tv.app/emote/${emoteId}/4x.avif`;
 }
@@ -31,12 +43,74 @@ export default function OverlayPage() {
   const showTotals = searchParams.get("showTotals") === "true";
   const showUsers = searchParams.get("showUsers") === "true";
 
+  // New options
+  const sizeParam = parseInt(searchParams.get("size") || "3", 10);
+  const sizeMultiplier = SIZE_MULTIPLIERS[sizeParam] ?? 1;
+  const corner = (searchParams.get("corner") || "bl") as CornerPosition;
+
   const [spawnQueue, setSpawnQueue] = useState<SpawnRequest[]>([]);
   const [clearKey, setClearKey] = useState(0);
   const initialHorselulCountRef = useRef<number | null>(null);
 
   const { data, addCombo, clearStorage, heartsTotal, horselulTotal, isLoaded } =
     useComboStorage(username);
+
+  // Clear all data helper
+  const clearAllData = useCallback(() => {
+    clearStorage();
+    setSpawnQueue([]);
+    setClearKey((k) => k + 1);
+    initialHorselulCountRef.current = 0;
+  }, [clearStorage]);
+
+  // Subscribe to EventSub for this channel (ensures webhook is registered)
+  useEffect(() => {
+    if (!username) return;
+
+    fetch("/api/eventsub/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel: username }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          console.log("[EventSub] Subscribed:", data.message);
+        } else if (data.error) {
+          console.warn("[EventSub] Subscription error:", data.error);
+        }
+      })
+      .catch((err) => {
+        console.error("[EventSub] Failed to subscribe:", err);
+      });
+  }, [username]);
+
+  // Connect to SSE for stream.online events
+  useEffect(() => {
+    if (!username) return;
+
+    const eventSource = new EventSource(`/api/events?channel=${encodeURIComponent(username)}`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "stream_online") {
+          console.log("[SSE] Stream went online, clearing data");
+          clearAllData();
+        }
+      } catch {
+        // Ignore parse errors (e.g., ping comments)
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("[SSE] Connection error:", error);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [username, clearAllData]);
 
   // Restore horseluls from storage on load (with random colors since we don't store them)
   // Only runs once when data is first loaded
@@ -87,11 +161,8 @@ export default function OverlayPage() {
   );
 
   const handleClear = useCallback(() => {
-    clearStorage();
-    setSpawnQueue([]);
-    setClearKey((k) => k + 1); // Trigger horse removal
-    initialHorselulCountRef.current = 0; // Prevent re-restoring
-  }, [clearStorage]);
+    clearAllData();
+  }, [clearAllData]);
 
   if (!isLoaded) {
     return null; // Don't render until localStorage is loaded
@@ -107,12 +178,13 @@ export default function OverlayPage() {
           heartImageUrl={heartImage}
           showTotals={showTotals}
           showUsers={showUsers}
+          corner={corner}
         />
       )}
 
       {/* Show simple hearts counter only if totals are not shown */}
       {!showTotals && !showUsers && (
-        <HeartsCounter count={heartsTotal} imageUrl={heartImage} />
+        <HeartsCounter count={heartsTotal} imageUrl={heartImage} corner={corner} />
       )}
 
       {/* Physics canvas for falling horseluls */}
@@ -121,6 +193,7 @@ export default function OverlayPage() {
           imageUrl={horselulImage}
           spawnQueue={spawnQueue}
           clearKey={clearKey}
+          sizeMultiplier={sizeMultiplier}
         />
       )}
 
