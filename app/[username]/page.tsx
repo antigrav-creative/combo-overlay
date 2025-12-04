@@ -60,8 +60,20 @@ export default function OverlayPage() {
   const [lastHorseUpdate, setLastHorseUpdate] = useState<{ username: string; timestamp: number } | null>(null);
   const initialHorselulCountRef = useRef<number | null>(null);
 
-  const { data, addCombo, updateUserHorse, clearStorage, heartsTotal, horselulTotal, userHorses, isLoaded } =
-    useComboStorage(username);
+  const { 
+    data, 
+    addCombo, 
+    updateUserHorse, 
+    removeExpiredHorse,
+    expireHorse,
+    clearStorage, 
+    heartsTotal, 
+    heartsByUser,
+    horselulTotal, 
+    horselulUsers,
+    userHorses, 
+    isLoaded 
+  } = useComboStorage(username);
 
   // Clear all data helper
   const clearAllData = useCallback(() => {
@@ -72,55 +84,6 @@ export default function OverlayPage() {
     setLastHorseUpdate(null);
     initialHorselulCountRef.current = 0;
   }, [clearStorage]);
-
-  // Subscribe to EventSub for this channel (ensures webhook is registered)
-  useEffect(() => {
-    if (!username) return;
-
-    fetch("/api/eventsub/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channel: username }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          console.log("[EventSub] Subscribed:", data.message);
-        } else if (data.error) {
-          console.warn("[EventSub] Subscription error:", data.error);
-        }
-      })
-      .catch((err) => {
-        console.error("[EventSub] Failed to subscribe:", err);
-      });
-  }, [username]);
-
-  // Connect to SSE for stream.online events
-  useEffect(() => {
-    if (!username) return;
-
-    const eventSource = new EventSource(`/api/events?channel=${encodeURIComponent(username)}`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "stream_online") {
-          console.log("[SSE] Stream went online, clearing data");
-          clearAllData();
-        }
-      } catch {
-        // Ignore parse errors (e.g., ping comments)
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("[SSE] Connection error:", error);
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [username, clearAllData]);
 
   // Restore horseluls from storage on load (with random colors since we don't store them)
   // Only runs once when data is first loaded
@@ -202,12 +165,15 @@ export default function OverlayPage() {
       {/* Show ComboStats if either totals or users is enabled */}
       {(showTotals || showUsers) && (
         <ComboStats
-          data={data}
           horselulImageUrl={horselulImage}
           heartImageUrl={heartImage}
           showTotals={showTotals}
           showUsers={showUsers}
           corner={corner}
+          heartsTotal={heartsTotal}
+          heartsByUser={heartsByUser}
+          horselulTotal={horselulTotal}
+          horselulUsers={horselulUsers}
         />
       )}
 
@@ -233,6 +199,7 @@ export default function OverlayPage() {
           userHorses={userHorses}
           lastUpdate={lastHorseUpdate}
           corner={corner}
+          onExpired={removeExpiredHorse}
         />
       )}
 
@@ -251,8 +218,10 @@ export default function OverlayPage() {
           onSimulate={handleSimulate}
           onSimulateRaw={simulateRawMessage}
           onClear={handleClear}
+          onExpireHorse={expireHorse}
           heartsTotal={heartsTotal}
           horselulTotal={horselulTotal}
+          horseUsernames={Object.keys(userHorses || {})}
         />
       )}
     </div>

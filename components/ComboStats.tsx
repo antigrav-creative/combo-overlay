@@ -1,7 +1,5 @@
 "use client";
 
-import type { ComboStorage } from "@/hooks/useComboStorage";
-
 type CornerPosition = "bl" | "tl" | "br" | "tr";
 
 const CORNER_CLASSES: Record<CornerPosition, string> = {
@@ -12,30 +10,36 @@ const CORNER_CLASSES: Record<CornerPosition, string> = {
 };
 
 interface ComboStatsProps {
-  data: ComboStorage;
   horselulImageUrl: string;
   heartImageUrl: string;
   showTotals: boolean;
   showUsers: boolean;
   corner?: CornerPosition;
+  heartsTotal: number;
+  heartsByUser: Record<string, number>;
+  horselulTotal: number;
+  horselulUsers: Record<string, number>;
 }
 
 export function ComboStats({
-  data,
   horselulImageUrl,
   heartImageUrl,
   showTotals,
   showUsers,
   corner = "bl",
+  heartsTotal,
+  heartsByUser,
+  horselulTotal,
+  horselulUsers,
 }: ComboStatsProps) {
   if (!showTotals && !showUsers) return null;
 
   // Sort users by count descending
-  const horselulUsers = Object.entries(data.horselul.users)
+  const horselulUsersList = Object.entries(horselulUsers)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 10); // Top 10
 
-  const heartUsers = Object.entries(data.hearts.users)
+  const heartUsersList = Object.entries(heartsByUser)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 10); // Top 10
 
@@ -54,7 +58,7 @@ export function ComboStats({
               crossOrigin="anonymous"
             />
             <span className="text-2xl font-bold tabular-nums text-white">
-              {data.horselul.total.toLocaleString()}
+              {horselulTotal.toLocaleString()}
             </span>
           </div>
 
@@ -82,17 +86,17 @@ export function ComboStats({
               </div>
             </div>
             <span className="text-2xl font-bold tabular-nums text-white">
-              {data.hearts.total.toLocaleString()}
+              {heartsTotal.toLocaleString()}
             </span>
           </div>
         </div>
       )}
 
       {/* User breakdowns */}
-      {showUsers && (horselulUsers.length > 0 || heartUsers.length > 0) && (
+      {showUsers && (horselulUsersList.length > 0 || heartUsersList.length > 0) && (
         <div className="flex flex-col gap-3 rounded-2xl bg-black/60 px-5 py-4 backdrop-blur-sm">
           {/* Horselul users */}
-          {horselulUsers.length > 0 && (
+          {horselulUsersList.length > 0 && (
             <div>
               <div className="mb-2 flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -107,7 +111,7 @@ export function ComboStats({
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                {horselulUsers.map(([username, count], index) => (
+                {horselulUsersList.map(([username, count], index) => (
                   <div
                     key={username}
                     className="flex items-center justify-between gap-4 text-sm"
@@ -125,12 +129,12 @@ export function ComboStats({
           )}
 
           {/* Divider */}
-          {horselulUsers.length > 0 && heartUsers.length > 0 && (
+          {horselulUsersList.length > 0 && heartUsersList.length > 0 && (
             <div className="h-px bg-zinc-700" />
           )}
 
           {/* Heart users */}
-          {heartUsers.length > 0 && (
+          {heartUsersList.length > 0 && (
             <div>
               <div className="mb-2 flex items-center gap-2">
                 <div className="relative h-5 w-5">
@@ -159,7 +163,7 @@ export function ComboStats({
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                {heartUsers.map(([username, count], index) => (
+                {heartUsersList.map(([username, count], index) => (
                   <div
                     key={username}
                     className="flex items-center justify-between gap-4 text-sm"
@@ -180,4 +184,3 @@ export function ComboStats({
     </div>
   );
 }
-

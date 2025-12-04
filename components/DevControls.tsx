@@ -7,8 +7,10 @@ interface DevControlsProps {
   onSimulate: (type: ComboType, username: string, color: string | null) => void;
   onSimulateRaw?: (rawMessage: string) => void;
   onClear: () => void;
+  onExpireHorse?: (username: string) => void;
   heartsTotal: number;
   horselulTotal: number;
+  horseUsernames?: string[];
 }
 
 // Some fun preset colors
@@ -27,8 +29,10 @@ export function DevControls({
   onSimulate,
   onSimulateRaw,
   onClear,
+  onExpireHorse,
   heartsTotal,
   horselulTotal,
+  horseUsernames = [],
 }: DevControlsProps) {
   const [username, setUsername] = useState("testuser");
   const [color, setColor] = useState("#FF6B00");
@@ -137,6 +141,26 @@ export function DevControls({
           <span>Horseluls: {horselulTotal}</span>
         </div>
       </div>
+
+      {/* Expire Horse (for testing explosion) */}
+      {onExpireHorse && horseUsernames.length > 0 && (
+        <div className="mb-4">
+          <label className="mb-1 block text-xs text-zinc-400">
+            💥 Expire Horse (test explosion)
+          </label>
+          <div className="flex flex-wrap gap-1">
+            {horseUsernames.map((name) => (
+              <button
+                key={name}
+                onClick={() => onExpireHorse(name)}
+                className="rounded bg-orange-600 px-2 py-1 text-xs font-medium transition-colors hover:bg-orange-500"
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Test Raw IRC button */}
       {onSimulateRaw && (

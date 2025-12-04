@@ -10,11 +10,28 @@ A browser-based overlay for Twitch streams that tracks and displays combo redemp
 - **Hearts Counter** - Displays a running total of heart combo redemptions
 - **7TV Emote Support** - Customizable emotes via 7TV emote IDs
 - **User Tracking** - Tracks who sent each combo and displays leaderboards
+- **Auto-Expiration** - Horses expire after 1 hour of inactivity, hearts expire after 12 hours
+- **Explosion Animation** - Horses explode with a puff effect when they expire
 - **Persistent Storage** - Data persists in localStorage across page refreshes
-- **Auto-Clear on Stream Start** - Clears data when stream goes live (via Twitch EventSub)
 - **Configurable Position** - Choose which corner to display stats
 - **Adjustable Size** - Scale the falling emotes up or down
 - **Dev Mode** - Test functionality without real bit cheers
+
+## Expiration System
+
+### Horselul (Horses)
+- Each user's horse has a **1 hour** expiry timer
+- Timer resets every time that user cheers a horselul
+- If 1 hour passes with no activity from that user:
+  - Horse explodes with a puff animation
+  - User's count is removed from the total
+  - User is removed from the leaderboard
+- If the user cheers again after expiry, they get a brand new horse at a random position starting at base size
+
+### Hearts
+- Each heart has a **12 hour** expiry timer
+- Hearts are removed from the count automatically when they expire
+- No animation for heart expiry (they just disappear from the count)
 
 ## Setup
 
@@ -24,28 +41,13 @@ A browser-based overlay for Twitch streams that tracks and displays combo redemp
 pnpm install
 ```
 
-### 2. Configure Environment (Optional - for EventSub)
-
-Create a `.env.local` file for auto-clear on stream start:
-
-```env
-TWITCH_CLIENT_ID=your_client_id
-TWITCH_CLIENT_SECRET=your_client_secret
-TWITCH_EVENTSUB_SECRET=any_random_string
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-Get credentials from [Twitch Developer Console](https://dev.twitch.tv/console/apps).
-
-> **Note:** EventSub requires a public HTTPS URL. It won't work on localhost but the overlay functions normally without it.
-
-### 3. Run Development Server
+### 2. Run Development Server
 
 ```bash
 pnpm dev
 ```
 
-### 4. Configure Your Overlay
+### 3. Configure Your Overlay
 
 1. Open [http://localhost:3000](http://localhost:3000) in your browser
 2. Enter your Twitch channel name
@@ -54,7 +56,7 @@ pnpm dev
 5. Toggle display options for totals and user leaderboards
 6. Copy the generated overlay URL
 
-### 5. Add to OBS
+### 4. Add to OBS
 
 1. Add a **Browser Source** in OBS
 2. Paste the overlay URL (e.g., `http://localhost:3000/yourchannel?showTotals=true`)
@@ -80,8 +82,9 @@ pnpm dev
 **User Horses (`userHorses=true`):**
 - Each user gets their own horse positioned randomly in the bottom half
 - Horse displays user's Twitch color and username
-- Horse grows larger with each horselul redemption (no cap)
+- Horse grows larger with each horselul redemption
 - Jump animation when user redeems
+- Expires after 1 hour of inactivity with explosion animation
 
 **Falling Hearts (`fallingHearts=true`):**
 - Hearts spawn at top of screen when redeemed
@@ -122,25 +125,15 @@ With `?dev=true` in the URL:
 - Use the on-screen controls to simulate combos
 - Type `#heart` or `#horselul` in chat to trigger test events
 - Test with raw IRC message format via the "Test Raw IRC" buttons
+- Manually expire horses to preview the explosion animation
+- Clear all data instantly
 
-## EventSub (Auto-Clear)
+## Data Persistence
 
-When deployed to a public HTTPS URL, the overlay automatically clears all data when the stream goes live. This uses Twitch EventSub webhooks.
-
-### How it works:
-
-1. Overlay subscribes to `stream.online` events for the channel
-2. Twitch sends a webhook when the stream starts
-3. Server broadcasts to connected overlays via Server-Sent Events
-4. Overlays clear their data
-
-### Requirements:
-
-- Public HTTPS URL (Vercel, Railway, etc.)
-- Twitch Developer App credentials in `.env.local`
-- Update `NEXT_PUBLIC_APP_URL` to your production URL
-
-> **Local Development:** EventSub is automatically skipped on localhost. Use the "Clear All Data" button in dev mode instead.
+Data is stored in localStorage with the key `combo-overlay-v3-{channel}`:
+- Persists across page refreshes
+- Cleared when OBS closes the browser source
+- Can be manually cleared via dev mode
 
 ## Deployment
 
@@ -150,9 +143,7 @@ When deployed to a public HTTPS URL, the overlay automatically clears all data w
 npx vercel
 ```
 
-After deploying:
-1. Update `NEXT_PUBLIC_APP_URL` in Vercel environment variables to your production URL
-2. Add your Twitch credentials to Vercel environment variables
+The overlay works on any static hosting since it uses client-side Twitch IRC connection (no server required).
 
 ## Tech Stack
 
@@ -161,7 +152,6 @@ After deploying:
 - **matter-js** - 2D physics engine
 - **7TV CDN** - Animated emote hosting
 - **Tailwind CSS** - Styling
-- **Twitch EventSub** - Stream status webhooks
 
 ## Development
 
