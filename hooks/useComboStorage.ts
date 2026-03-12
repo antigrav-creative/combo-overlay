@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import type { ComboType } from "./useTwitchChat";
 
 // Expiration times in milliseconds
-const HORSE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const HORSE_SHRINK_MS = 60 * 60 * 1000; // 1 hour — shrink by 1 per hour of inactivity
+const HORSE_REMOVE_MS = 12 * 60 * 60 * 1000; // 12 hours — full removal (same as hearts)
 const HEART_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 // Individual heart redemption with timestamp
@@ -19,9 +20,8 @@ export interface UserHorseData {
   count: number;
   x: number; // percentage 0-100
   y: number; // percentage 50-100 (bottom half)
-  timestamp: number; // when the horse was last updated (for expiry calculation)
-  isExpiring?: boolean; // flag to trigger explosion animation
-  expiringAt?: number; // when the horse started expiring (for removal timing)
+  timestamp: number; // when the horse was last updated (for shrink/expiry calculation)
+  lastShrinkAt?: number; // when we last applied a shrink (for catch-up after page reload)
 }
 
 export interface ComboStorage {
@@ -30,13 +30,20 @@ export interface ComboStorage {
     total: number;
     users: Record<string, number>;
   };
+  dinodance: {
+    total: number;
+    users: Record<string, number>;
+  };
   userHorses: Record<string, UserHorseData>;
+  userDinos: Record<string, UserHorseData>;
 }
 
 const createEmptyStorage = (): ComboStorage => ({
   hearts: [],
   horselul: { total: 0, users: {} },
+  dinodance: { total: 0, users: {} },
   userHorses: {},
+  userDinos: {},
 });
 
 function getStorageKey(channel: string): string {
@@ -59,7 +66,9 @@ export function useComboStorage(channel: string) {
         setData({
           hearts: parsed.hearts || [],
           horselul: parsed.horselul || { total: 0, users: {} },
+          dinodance: parsed.dinodance || { total: 0, users: {} },
           userHorses: parsed.userHorses || {},
+          userDinos: parsed.userDinos || {},
         });
       }
     } catch (err) {
@@ -80,138 +89,102 @@ export function useComboStorage(channel: string) {
     }
   }, [channel, data, isLoaded]);
 
-  // Check for expired horses and hearts periodically
+  // Check for horse shrinking/removal and heart expiry periodically
   useEffect(() => {
     if (!isLoaded) return;
 
-    const checkExpiry = () => {
-      const now = Date.now();
-      
-      setData((prev) => {
-        let changed = false;
-        const newUserHorses = { ...prev.userHorses };
-        const horsesToMarkExpiring: string[] = [];
-        const horsesToRemove: string[] = [];
+    // Shared logic: shrink + remove for a creature type (horses or dinos)
+    const processCreatures = (
+      creatures: Record<string, UserHorseData>,
+      totals: { total: number; users: Record<string, number> },
+      now: number,
+    ) => {
+      let changed = false;
+      const updated = { ...creatures };
+      const toRemove: string[] = [];
 
-        for (const [username, horse] of Object.entries(newUserHorses)) {
-          const age = now - horse.timestamp;
-          
-          if (horse.isExpiring && horse.expiringAt) {
-            // Already expiring - check if animation time has passed (2 seconds for animation to complete)
-            const timeSinceExpiring = now - horse.expiringAt;
-            if (timeSinceExpiring >= 2000) {
-              // Animation should be done, remove completely
-              horsesToRemove.push(username);
+      for (const [username, creature] of Object.entries(updated)) {
+        const inactiveMs = now - creature.timestamp;
+
+        if (inactiveMs >= HORSE_REMOVE_MS) {
+          toRemove.push(username);
+          changed = true;
+          continue;
+        }
+
+        if (inactiveMs >= HORSE_SHRINK_MS && creature.count > 1) {
+          const lastShrink = creature.lastShrinkAt || creature.timestamp;
+          const hoursSinceLastShrink = Math.floor((now - lastShrink) / HORSE_SHRINK_MS);
+          if (hoursSinceLastShrink > 0) {
+            const shrinksToApply = Math.min(hoursSinceLastShrink, creature.count - 1);
+            if (shrinksToApply > 0) {
+              updated[username] = { ...creature, count: creature.count - shrinksToApply, lastShrinkAt: now };
               changed = true;
             }
-          } else if (age >= HORSE_EXPIRY_MS && !horse.isExpiring) {
-            // Just expired - mark as expiring to trigger animation
-            horsesToMarkExpiring.push(username);
-            changed = true;
           }
         }
+      }
 
-        // Mark horses as expiring (triggers animation)
-        for (const username of horsesToMarkExpiring) {
-          newUserHorses[username] = { ...newUserHorses[username], isExpiring: true, expiringAt: now };
-        }
+      let totalToRemove = 0;
+      const newUsers = { ...totals.users };
+      for (const username of toRemove) {
+        totalToRemove += totals.users[username] || 0;
+        delete newUsers[username];
+        delete updated[username];
+      }
 
-        // Calculate counts to remove
-        let totalToRemove = 0;
-        const newHorselulUsers = { ...prev.horselul.users };
-        
-        // Remove expired horses completely
-        for (const username of horsesToRemove) {
-          totalToRemove += prev.horselul.users[username] || 0;
-          delete newHorselulUsers[username];
-          delete newUserHorses[username];
-        }
+      return {
+        changed,
+        creatures: updated,
+        totals: { total: Math.max(0, totals.total - totalToRemove), users: newUsers },
+      };
+    };
+
+    const checkExpiry = () => {
+      const now = Date.now();
+
+      setData((prev) => {
+        const horseResult = processCreatures(prev.userHorses, prev.horselul, now);
+        const dinoResult = processCreatures(prev.userDinos, prev.dinodance, now);
 
         // Filter out expired hearts
         const newHearts = prev.hearts.filter((h) => now - h.timestamp < HEART_EXPIRY_MS);
-        if (newHearts.length !== prev.hearts.length) {
-          changed = true;
-        }
+        const heartsChanged = newHearts.length !== prev.hearts.length;
 
-        if (!changed) return prev;
+        if (!horseResult.changed && !dinoResult.changed && !heartsChanged) return prev;
 
         return {
           ...prev,
           hearts: newHearts,
-          horselul: {
-            total: Math.max(0, prev.horselul.total - totalToRemove),
-            users: newHorselulUsers,
-          },
-          userHorses: newUserHorses,
+          horselul: horseResult.totals,
+          dinodance: dinoResult.totals,
+          userHorses: horseResult.creatures,
+          userDinos: dinoResult.creatures,
         };
       });
     };
 
-    // Check immediately and then every second (for smoother animation timing)
     checkExpiry();
     const interval = setInterval(checkExpiry, 1000);
     return () => clearInterval(interval);
   }, [isLoaded]);
 
-  // Remove a horse immediately (called after animation or for manual removal)
-  const removeExpiredHorse = useCallback((username: string) => {
-    setData((prev) => {
-      const horse = prev.userHorses[username];
-      if (!horse) return prev;
-      
-      const newUserHorses = { ...prev.userHorses };
-      delete newUserHorses[username];
-      
-      // Get the count from horselul.users to ensure accuracy
-      const userHorselulCount = prev.horselul.users[username] || 0;
-      
-      // Remove from horselul users
-      const newHorselulUsers = { ...prev.horselul.users };
-      delete newHorselulUsers[username];
-      
-      return {
-        ...prev,
-        horselul: {
-          total: Math.max(0, prev.horselul.total - userHorselulCount),
-          users: newHorselulUsers,
-        },
-        userHorses: newUserHorses,
-      };
-    });
-  }, []);
-
-  // Manually trigger a horse to expire (for dev testing)
-  const expireHorse = useCallback((username: string) => {
-    setData((prev) => {
-      const horse = prev.userHorses[username];
-      if (!horse) return prev;
-      
-      return {
-        ...prev,
-        userHorses: {
-          ...prev.userHorses,
-          [username]: { ...horse, isExpiring: true, expiringAt: Date.now() },
-        },
-      };
-    });
-  }, []);
-
   const addCombo = useCallback((type: ComboType, username: string) => {
     const now = Date.now();
-    
+
     setData((prev) => {
       if (type === "heart") {
-        // Add heart with timestamp
         return {
           ...prev,
           hearts: [...prev.hearts, { username, timestamp: now }],
         };
       } else {
-        // Horselul - track total and users
-        const current = prev.horselul;
+        // horselul or dinodance — same structure
+        const key = type === "dinodance" ? "dinodance" : "horselul";
+        const current = prev[key];
         return {
           ...prev,
-          horselul: {
+          [key]: {
             total: current.total + 1,
             users: {
               ...current.users,
@@ -223,36 +196,38 @@ export function useComboStorage(channel: string) {
     });
   }, []);
 
-  // Add or update a user's horse (for user horses mode)
-  // corner param helps avoid placing horses under the stats display
-  const updateUserHorse = useCallback((username: string, color: string, corner: string = "bl") => {
+  // Shared logic for adding/updating a creature (horse or dino)
+  const updateCreature = useCallback((
+    creatureKey: "userHorses" | "userDinos",
+    username: string,
+    color: string,
+    corner: string = "bl",
+  ) => {
     setData((prev) => {
-      const userHorses = prev.userHorses || {};
-      const existing = userHorses[username];
+      const creatures = prev[creatureKey] || {};
+      const existing = creatures[username];
       const now = Date.now();
       
-      if (existing && !existing.isExpiring) {
-        // User exists and not expiring - increment count and reset timestamp
+      if (existing) {
         return {
           ...prev,
-          userHorses: {
-            ...userHorses,
+          [creatureKey]: {
+            ...creatures,
             [username]: {
               ...existing,
               count: existing.count + 1,
               color: color || existing.color,
-              timestamp: now, // Reset expiry timer
+              timestamp: now,
+              lastShrinkAt: now,
             },
           },
         };
       } else {
-        // New user or expired - create horse at random position avoiding the counter corner
         let minX = 15;
         let maxX = 85;
         let minY = 55;
         let maxY = 85;
 
-        // Avoid the corner where stats are displayed
         if (corner === "bl") {
           minX = 35;
           maxY = 80;
@@ -270,21 +245,29 @@ export function useComboStorage(channel: string) {
 
         return {
           ...prev,
-          userHorses: {
-            ...userHorses,
+          [creatureKey]: {
+            ...creatures,
             [username]: {
               color: color || "#9147ff",
               count: 1,
               x,
               y,
               timestamp: now,
-              isExpiring: false, // Explicitly set to false so it can expire later
+              lastShrinkAt: now,
             },
           },
         };
       }
     });
   }, []);
+
+  const updateUserHorse = useCallback((username: string, color: string, corner: string = "bl") => {
+    updateCreature("userHorses", username, color, corner);
+  }, [updateCreature]);
+
+  const updateUserDino = useCallback((username: string, color: string, corner: string = "bl") => {
+    updateCreature("userDinos", username, color, corner);
+  }, [updateCreature]);
 
   const clearStorage = useCallback(() => {
     setData(createEmptyStorage());
@@ -307,13 +290,15 @@ export function useComboStorage(channel: string) {
     isLoaded,
     addCombo,
     updateUserHorse,
-    removeExpiredHorse,
-    expireHorse,
+    updateUserDino,
     clearStorage,
     heartsTotal,
     heartsByUser,
     horselulTotal: data.horselul.total,
     horselulUsers: data.horselul.users,
     userHorses: data.userHorses,
+    dinodanceTotal: data.dinodance.total,
+    dinodanceUsers: data.dinodance.users,
+    userDinos: data.userDinos,
   };
 }

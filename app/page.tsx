@@ -6,6 +6,7 @@ import Image from "next/image";
 
 const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
 const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
+const DEFAULT_DINODANCE_EMOTE_ID = "01FN4MWV0000071FCSB63SBDBN";
 
 function get7TVUrl(emoteId: string): string {
   return `https://cdn.7tv.app/emote/${emoteId}/4x.avif`;
@@ -17,14 +18,15 @@ export default function SetupPage() {
   const [channel, setChannel] = useState("");
   const [horselulEmoteId, setHorselulEmoteId] = useState(DEFAULT_HORSELUL_EMOTE_ID);
   const [heartEmoteId, setHeartEmoteId] = useState(DEFAULT_HEART_EMOTE_ID);
+  const [dinodanceEmoteId, setDinodanceEmoteId] = useState(DEFAULT_DINODANCE_EMOTE_ID);
   const [devMode, setDevMode] = useState(false);
   const [showTotals, setShowTotals] = useState(true);
   const [showUsers, setShowUsers] = useState(false);
   const [horselulError, setHorselulError] = useState(false);
   const [heartError, setHeartError] = useState(false);
+  const [dinodanceError, setDinodanceError] = useState(false);
   const [size, setSize] = useState(3);
   const [corner, setCorner] = useState<"bl" | "tl" | "br" | "tr">("bl");
-  const [userHorses, setUserHorses] = useState(true);
   const [fallingHearts, setFallingHearts] = useState(true);
 
   // Default dev mode based on environment
@@ -36,9 +38,10 @@ export default function SetupPage() {
 
   const horselulUrl = get7TVUrl(horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID);
   const heartUrl = get7TVUrl(heartEmoteId || DEFAULT_HEART_EMOTE_ID);
+  const dinodanceUrl = get7TVUrl(dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID);
   
   const generatedUrl = channel
-    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!userHorses ? "&userHorses=false" : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
+    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}&dinodanceEmoteId=${dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
     : null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -89,8 +92,8 @@ export default function SetupPage() {
             />
           </div>
 
-          {/* Emote Settings - Two Columns */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Emote Settings */}
+          <div className="grid gap-4 sm:grid-cols-3">
             {/* Horselul Emote */}
             <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
               <label
@@ -182,6 +185,45 @@ export default function SetupPage() {
               </div>
               <p className="mt-2 text-xs text-zinc-500">Counter icon (clipped)</p>
             </div>
+
+            {/* DinoDance Emote */}
+            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+              <label
+                htmlFor="dinodanceEmoteId"
+                className="mb-2 block text-sm font-medium text-zinc-300"
+              >
+                DinoDance Emote ID
+              </label>
+              <input
+                id="dinodanceEmoteId"
+                type="text"
+                value={dinodanceEmoteId}
+                onChange={(e) => {
+                  setDinodanceEmoteId(e.target.value.trim());
+                  setDinodanceError(false);
+                }}
+                placeholder={DEFAULT_DINODANCE_EMOTE_ID}
+                className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none transition-colors focus:border-purple-500"
+              />
+              <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
+                {!dinodanceError ? (
+                  <Image
+                    src={dinodanceUrl}
+                    alt="DinoDance emote preview"
+                    width={64}
+                    height={64}
+                    className="object-contain"
+                    onError={() => setDinodanceError(true)}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="text-center text-xs text-red-400">
+                    Failed to load
+                  </div>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-zinc-500">Dino creatures</p>
+            </div>
           </div>
 
           <p className="text-xs text-zinc-500">
@@ -192,29 +234,6 @@ export default function SetupPage() {
           {/* Mode Options */}
           <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <p className="text-sm font-medium text-zinc-400">Combo Modes</p>
-            
-            {/* User Horses Toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-white">User Horses</p>
-                <p className="text-sm text-zinc-400">
-                  Each user gets their own horse that grows
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setUserHorses(!userHorses)}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
-                  userHorses ? "bg-purple-600" : "bg-zinc-600"
-                }`}
-              >
-                <span
-                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
-                    userHorses ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
 
             {/* Falling Hearts Toggle */}
             <div className="flex items-center justify-between">

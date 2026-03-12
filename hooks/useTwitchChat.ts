@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import tmi from "tmi.js";
 
-export type ComboType = "heart" | "horselul";
+export type ComboType = "heart" | "horselul" | "dinodance";
 
 export interface ComboEvent {
   type: ComboType;
@@ -21,7 +21,7 @@ interface UseTwitchChatOptions {
 }
 
 // Dev mode triggers - requires # prefix (e.g., #heart, #horselul)
-const DEV_TRIGGER_PATTERN = /^#(horselul|heart|hearts)(\s|$)/i;
+const DEV_TRIGGER_PATTERN = /^#(horselul|heart|hearts|dinodance)(\s|$)/i;
 
 // Parse raw IRC tags from Twitch message
 function parseIRCTags(rawTags: string): Record<string, string> {
@@ -63,6 +63,8 @@ function processComboFromTags(
       type = "heart";
     } else if (giftLower === "horselul") {
       type = "horselul";
+    } else if (giftLower === "dinodance") {
+      type = "dinodance";
     }
 
     if (type) {
@@ -127,6 +129,8 @@ export function useTwitchChat({
           type = "heart";
         } else if (msgLower.includes("horselul")) {
           type = "horselul";
+        } else if (msgLower.includes("dinodance")) {
+          type = "dinodance";
         }
 
         if (type) {
@@ -140,7 +144,10 @@ export function useTwitchChat({
         const devMatch = message.trim().match(DEV_TRIGGER_PATTERN);
         if (devMatch) {
           const trigger = devMatch[1].toLowerCase();
-          const type: ComboType = (trigger === "heart" || trigger === "hearts") ? "heart" : "horselul";
+          let type: ComboType;
+          if (trigger === "heart" || trigger === "hearts") type = "heart";
+          else if (trigger === "dinodance") type = "dinodance";
+          else type = "horselul";
           onComboRef.current({ type, username, color, bits: type === "heart" ? 5 : 50, timestamp: Date.now() });
         }
       }

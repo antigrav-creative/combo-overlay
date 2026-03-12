@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTwitchChat, type ComboType } from "@/hooks/useTwitchChat";
 import { useComboStorage } from "@/hooks/useComboStorage";
 import { HeartsCounter } from "@/components/HeartsCounter";
-import { PhysicsCanvas, type SpawnRequest } from "@/components/PhysicsCanvas";
 import { DevControls } from "@/components/DevControls";
 import { ComboStats } from "@/components/ComboStats";
 import { UserHorses } from "@/components/UserHorses";
@@ -13,6 +12,7 @@ import { FallingHearts, type HeartSpawnRequest } from "@/components/FallingHeart
 
 const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
 const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
+const DEFAULT_DINODANCE_EMOTE_ID = "01FN4MWV0000071FCSB63SBDBN";
 
 // Size multiplier mapping (1-5 → 0.5x to 2x)
 const SIZE_MULTIPLIERS: Record<number, number> = {
@@ -39,8 +39,10 @@ export default function OverlayPage() {
   const username = params.username as string;
   const horselulEmoteId = searchParams.get("emoteId") || DEFAULT_HORSELUL_EMOTE_ID;
   const heartEmoteId = searchParams.get("heartEmoteId") || DEFAULT_HEART_EMOTE_ID;
+  const dinodanceEmoteId = searchParams.get("dinodanceEmoteId") || DEFAULT_DINODANCE_EMOTE_ID;
   const horselulImage = get7TVUrl(horselulEmoteId);
   const heartImage = get7TVUrl(heartEmoteId);
+  const dinodanceImage = get7TVUrl(dinodanceEmoteId);
   const isDevMode = searchParams.get("dev") === "true";
   const showTotals = searchParams.get("showTotals") === "true";
   const showUsers = searchParams.get("showUsers") === "true";
@@ -50,79 +52,48 @@ export default function OverlayPage() {
   const sizeMultiplier = SIZE_MULTIPLIERS[sizeParam] ?? 1;
   const corner = (searchParams.get("corner") || "bl") as CornerPosition;
   
-  // New modes (both on by default)
-  const userHorsesEnabled = searchParams.get("userHorses") !== "false";
   const fallingHeartsEnabled = searchParams.get("fallingHearts") !== "false";
 
-  const [spawnQueue, setSpawnQueue] = useState<SpawnRequest[]>([]);
   const [heartSpawnQueue, setHeartSpawnQueue] = useState<HeartSpawnRequest[]>([]);
-  const [clearKey, setClearKey] = useState(0);
   const [lastHorseUpdate, setLastHorseUpdate] = useState<{ username: string; timestamp: number } | null>(null);
-  const initialHorselulCountRef = useRef<number | null>(null);
+  const [lastDinoUpdate, setLastDinoUpdate] = useState<{ username: string; timestamp: number } | null>(null);
 
-  const { 
-    data, 
-    addCombo, 
-    updateUserHorse, 
-    removeExpiredHorse,
-    expireHorse,
-    clearStorage, 
-    heartsTotal, 
+  const {
+    addCombo,
+    updateUserHorse,
+    updateUserDino,
+    clearStorage,
+    heartsTotal,
     heartsByUser,
-    horselulTotal, 
+    horselulTotal,
     horselulUsers,
-    userHorses, 
-    isLoaded 
+    userHorses,
+    dinodanceTotal,
+    dinodanceUsers,
+    userDinos,
+    isLoaded
   } = useComboStorage(username);
 
   // Clear all data helper
   const clearAllData = useCallback(() => {
     clearStorage();
-    setSpawnQueue([]);
     setHeartSpawnQueue([]);
-    setClearKey((k) => k + 1);
     setLastHorseUpdate(null);
-    initialHorselulCountRef.current = 0;
+    setLastDinoUpdate(null);
   }, [clearStorage]);
-
-  // Restore horseluls from storage on load (with random colors since we don't store them)
-  // Only runs once when data is first loaded
-  useEffect(() => {
-    if (isLoaded && initialHorselulCountRef.current === null) {
-      // Capture the initial count on first load
-      initialHorselulCountRef.current = horselulTotal;
-      
-      if (horselulTotal > 0) {
-        const restoredSpawns: SpawnRequest[] = [];
-        for (let i = 0; i < horselulTotal; i++) {
-          restoredSpawns.push({
-            id: spawnIdCounter++,
-            color: null, // Random color for restored ones
-          });
-        }
-        setSpawnQueue(restoredSpawns);
-      }
-    }
-  }, [isLoaded, horselulTotal]);
 
   const handleCombo = useCallback(
     (event: { type: ComboType; username: string; color: string | null }) => {
       addCombo(event.type, event.username);
 
       if (event.type === "horselul") {
-        // Original falling horseluls (if userHorses mode is off)
-        if (!userHorsesEnabled) {
-          setSpawnQueue((prev) => [
-            ...prev,
-            { id: spawnIdCounter++, color: event.color },
-          ]);
-        }
-        
-        // User horses mode - update user's horse
-        if (userHorsesEnabled) {
-          updateUserHorse(event.username, event.color || "#9147ff", corner);
-          setLastHorseUpdate({ username: event.username, timestamp: Date.now() });
-        }
+        updateUserHorse(event.username, event.color || "#9147ff", corner);
+        setLastHorseUpdate({ username: event.username, timestamp: Date.now() });
+      }
+
+      if (event.type === "dinodance") {
+        updateUserDino(event.username, event.color || "#9147ff", corner);
+        setLastDinoUpdate({ username: event.username, timestamp: Date.now() });
       }
 
       if (event.type === "heart") {
@@ -135,7 +106,7 @@ export default function OverlayPage() {
         }
       }
     },
-    [addCombo, updateUserHorse, userHorsesEnabled, fallingHeartsEnabled, corner]
+    [addCombo, updateUserHorse, updateUserDino, fallingHeartsEnabled, corner]
   );
 
   const { simulateRawMessage } = useTwitchChat({
@@ -167,6 +138,7 @@ export default function OverlayPage() {
         <ComboStats
           horselulImageUrl={horselulImage}
           heartImageUrl={heartImage}
+          dinodanceImageUrl={dinodanceImage}
           showTotals={showTotals}
           showUsers={showUsers}
           corner={corner}
@@ -174,6 +146,8 @@ export default function OverlayPage() {
           heartsByUser={heartsByUser}
           horselulTotal={horselulTotal}
           horselulUsers={horselulUsers}
+          dinodanceTotal={dinodanceTotal}
+          dinodanceUsers={dinodanceUsers}
         />
       )}
 
@@ -182,24 +156,23 @@ export default function OverlayPage() {
         <HeartsCounter count={heartsTotal} imageUrl={heartImage} corner={corner} />
       )}
 
-      {/* Physics canvas for falling horseluls (only when userHorses is off) */}
-      {horselulImage && !userHorsesEnabled && (
-        <PhysicsCanvas
-          imageUrl={horselulImage}
-          spawnQueue={spawnQueue}
-          clearKey={clearKey}
-          sizeMultiplier={sizeMultiplier}
-        />
-      )}
-
-      {/* User horses mode */}
-      {horselulImage && userHorsesEnabled && (
+      {/* User horses */}
+      {horselulImage && (
         <UserHorses
           imageUrl={horselulImage}
           userHorses={userHorses}
           lastUpdate={lastHorseUpdate}
           corner={corner}
-          onExpired={removeExpiredHorse}
+        />
+      )}
+
+      {/* User dinos */}
+      {dinodanceImage && (
+        <UserHorses
+          imageUrl={dinodanceImage}
+          userHorses={userDinos}
+          lastUpdate={lastDinoUpdate}
+          corner={corner}
         />
       )}
 
@@ -218,10 +191,9 @@ export default function OverlayPage() {
           onSimulate={handleSimulate}
           onSimulateRaw={simulateRawMessage}
           onClear={handleClear}
-          onExpireHorse={expireHorse}
           heartsTotal={heartsTotal}
           horselulTotal={horselulTotal}
-          horseUsernames={Object.keys(userHorses || {})}
+          dinodanceTotal={dinodanceTotal}
         />
       )}
     </div>

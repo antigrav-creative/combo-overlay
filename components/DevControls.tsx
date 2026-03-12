@@ -7,10 +7,9 @@ interface DevControlsProps {
   onSimulate: (type: ComboType, username: string, color: string | null) => void;
   onSimulateRaw?: (rawMessage: string) => void;
   onClear: () => void;
-  onExpireHorse?: (username: string) => void;
   heartsTotal: number;
   horselulTotal: number;
-  horseUsernames?: string[];
+  dinodanceTotal: number;
 }
 
 // Some fun preset colors
@@ -29,10 +28,9 @@ export function DevControls({
   onSimulate,
   onSimulateRaw,
   onClear,
-  onExpireHorse,
   heartsTotal,
   horselulTotal,
-  horseUsernames = [],
+  dinodanceTotal,
 }: DevControlsProps) {
   const [username, setUsername] = useState("testuser");
   const [color, setColor] = useState("#FF6B00");
@@ -131,36 +129,27 @@ export function DevControls({
         >
           🐴 Horselul
         </button>
+        <button
+          onClick={() => handleSimulate("dinodance")}
+          className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-green-500"
+        >
+          🦖 Dino
+        </button>
       </div>
 
       {/* Stats */}
       <div className="mb-4 rounded-lg bg-zinc-800 p-3">
         <h4 className="mb-2 text-xs font-medium text-zinc-400">Current Stats</h4>
-        <div className="flex justify-between text-sm">
-          <span>Hearts: {heartsTotal}</span>
-          <span>Horseluls: {horselulTotal}</span>
-        </div>
-      </div>
-
-      {/* Expire Horse (for testing explosion) */}
-      {onExpireHorse && horseUsernames.length > 0 && (
-        <div className="mb-4">
-          <label className="mb-1 block text-xs text-zinc-400">
-            💥 Expire Horse (test explosion)
-          </label>
-          <div className="flex flex-wrap gap-1">
-            {horseUsernames.map((name) => (
-              <button
-                key={name}
-                onClick={() => onExpireHorse(name)}
-                className="rounded bg-orange-600 px-2 py-1 text-xs font-medium transition-colors hover:bg-orange-500"
-              >
-                {name}
-              </button>
-            ))}
+        <div className="flex flex-col gap-1 text-sm">
+          <div className="flex justify-between">
+            <span>Hearts: {heartsTotal}</span>
+            <span>Horseluls: {horselulTotal}</span>
+          </div>
+          <div>
+            <span>DinoDance: {dinodanceTotal}</span>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Test Raw IRC button */}
       {onSimulateRaw && (
@@ -174,9 +163,17 @@ export function DevControls({
       {onSimulateRaw && (
         <button
           onClick={() => onSimulateRaw("@badge-info=founder/15;badges=founder/0;color=#8A2BE2;display-name=TestUser;msg-id=onetapgiftredeemed;msg-param-bits-spent=50;msg-param-gift-id=horselul;msg-param-user-display-name=TestUser :tmi.twitch.tv USERNOTICE #test")}
-          className="mb-4 w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-amber-500"
+          className="mb-2 w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-amber-500"
         >
           🧪 Test Raw IRC (Horselul)
+        </button>
+      )}
+      {onSimulateRaw && (
+        <button
+          onClick={() => onSimulateRaw("@badge-info=founder/15;badges=founder/0;color=#00FF00;display-name=TestUser;msg-id=onetapgiftredeemed;msg-param-bits-spent=50;msg-param-gift-id=dinodance;msg-param-user-display-name=TestUser :tmi.twitch.tv USERNOTICE #test")}
+          className="mb-4 w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-amber-500"
+        >
+          🧪 Test Raw IRC (DinoDance)
         </button>
       )}
 
