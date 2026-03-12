@@ -180,6 +180,7 @@ export default function OverlayPage() {
           { imageUrl: dinodanceImage, creatures: userDinos, lastUpdate: lastDinoUpdate },
           { imageUrl: awwwImage, creatures: userAwwws, lastUpdate: lastAwwwUpdate, sizeScale: 2 },
         ]}
+        showBounds={isDevMode}
       />
 
       {/* Falling hearts */}

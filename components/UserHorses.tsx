@@ -61,15 +61,19 @@ interface CreatureGroup {
 
 interface PhysicsCreaturesProps {
   groups: CreatureGroup[];
+  showBounds?: boolean;
 }
 
-export function PhysicsCreatures({ groups }: PhysicsCreaturesProps) {
+export function PhysicsCreatures({ groups, showBounds = false }: PhysicsCreaturesProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<Matter.Engine | null>(null);
   const runnerRef = useRef<Matter.Runner | null>(null);
   const bodiesRef = useRef<Map<string, CreatureBody>>(new Map());
   const animationRef = useRef<number>(0);
   const lastUpdatesRef = useRef<Map<number, { username: string; timestamp: number }>>(new Map());
+  const showBoundsRef = useRef(showBounds);
+  showBoundsRef.current = showBounds;
 
   // Initialize shared physics engine (runs once)
   useEffect(() => {
@@ -92,11 +96,78 @@ export function PhysicsCreatures({ groups }: PhysicsCreaturesProps) {
     Matter.Runner.run(runner, engine);
 
     const updatePositions = () => {
+      // Detect overlapping bodies and apply separation impulse
+      const bodies = Array.from(bodiesRef.current.values());
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const a = bodies[i].body;
+          const b = bodies[j].body;
+          // AABB overlap check
+          const overlapX = Math.min(a.bounds.max.x, b.bounds.max.x) - Math.max(a.bounds.min.x, b.bounds.min.x);
+          const overlapY = Math.min(a.bounds.max.y, b.bounds.max.y) - Math.max(a.bounds.min.y, b.bounds.min.y);
+          if (overlapX > 0 && overlapY > 0) {
+            // Bodies are overlapping — push apart along the axis of least overlap
+            const dx = b.position.x - a.position.x;
+            const dy = b.position.y - a.position.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const penetration = Math.min(overlapX, overlapY);
+            const strength = penetration * 0.002;
+            // Move bodies apart immediately to reduce jitter
+            Matter.Body.setPosition(a, {
+              x: a.position.x - nx * penetration * 0.3,
+              y: a.position.y - ny * penetration * 0.3,
+            });
+            Matter.Body.setPosition(b, {
+              x: b.position.x + nx * penetration * 0.3,
+              y: b.position.y + ny * penetration * 0.3,
+            });
+            // Also apply impulse for natural-feeling separation
+            Matter.Body.applyForce(a, a.position, { x: -nx * strength, y: -ny * strength });
+            Matter.Body.applyForce(b, b.position, { x: nx * strength, y: ny * strength });
+          }
+        }
+      }
+
       for (const [, cb] of bodiesRef.current) {
         const { width: w } = getCreatureDimensions(cb.count, cb.sizeScale);
         const totalH = getCreatureDimensions(cb.count, cb.sizeScale).height + BADGE_HEIGHT;
         cb.element.style.transform = `translate(${cb.body.position.x - w / 2}px, ${cb.body.position.y - totalH / 2}px)`;
       }
+
+      // Debug: draw physics bounds
+      const canvas = canvasRef.current;
+      if (canvas && showBoundsRef.current) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          canvas.width = screenW;
+          canvas.height = screenH;
+          ctx.clearRect(0, 0, screenW, screenH);
+          ctx.strokeStyle = "rgba(0, 255, 0, 0.8)";
+          ctx.lineWidth = 2;
+          for (const [, cb] of bodiesRef.current) {
+            const { bounds } = cb.body;
+            ctx.strokeRect(
+              bounds.min.x, bounds.min.y,
+              bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y,
+            );
+          }
+          // Draw walls
+          ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+          for (const wall of walls) {
+            const { bounds } = wall;
+            ctx.strokeRect(
+              bounds.min.x, bounds.min.y,
+              bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y,
+            );
+          }
+        }
+      } else if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
       animationRef.current = requestAnimationFrame(updatePositions);
     };
     animationRef.current = requestAnimationFrame(updatePositions);
@@ -154,7 +225,7 @@ export function PhysicsCreatures({ groups }: PhysicsCreaturesProps) {
 
             const newBody = Matter.Bodies.rectangle(
               pos.x, pos.y,
-              width * 0.4, totalHeight * 0.6,
+              width * 0.4, totalHeight,
               { restitution: 0.2, friction: 0.8, frictionAir: 0.02, inertia: Infinity }
             );
             Matter.Body.setVelocity(newBody, vel);
@@ -163,6 +234,23 @@ export function PhysicsCreatures({ groups }: PhysicsCreaturesProps) {
             existing.body = newBody;
             existing.count = data.count;
             existing.sizeScale = scale;
+
+            // Push nearby creatures away when this one grows
+            for (const [otherKey, otherCb] of bodiesRef.current) {
+              if (otherKey === key) continue;
+              const dx = otherCb.body.position.x - pos.x;
+              const dy = otherCb.body.position.y - pos.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 300) {
+                const strength = 0.4 * (1 - dist / 300);
+                const nx = dist > 0 ? dx / dist : (Math.random() - 0.5);
+                const ny = dist > 0 ? dy / dist : -1;
+                Matter.Body.applyForce(otherCb.body, otherCb.body.position, {
+                  x: nx * strength,
+                  y: ny * strength - 0.1,
+                });
+              }
+            }
 
             const imgEl = existing.element.querySelector(".creature-img") as HTMLDivElement;
             if (imgEl) {
@@ -184,7 +272,7 @@ export function PhysicsCreatures({ groups }: PhysicsCreaturesProps) {
 
           const body = Matter.Bodies.rectangle(
             x, y,
-            width * 0.4, totalHeight * 0.6,
+            width * 0.4, totalHeight,
             { restitution: 0.2, friction: 0.8, frictionAir: 0.02, inertia: Infinity }
           );
           Matter.Composite.add(engine.world, body);
@@ -250,9 +338,17 @@ export function PhysicsCreatures({ groups }: PhysicsCreaturesProps) {
   }, [groups]);
 
   return (
-    <div
-      ref={containerRef}
-      className="pointer-events-none fixed inset-0 z-30 overflow-hidden"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="pointer-events-none fixed inset-0 z-30 overflow-hidden"
+      />
+      {showBounds && (
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none fixed inset-0 z-40"
+        />
+      )}
+    </>
   );
 }
