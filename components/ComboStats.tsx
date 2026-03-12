@@ -13,6 +13,7 @@ interface ComboStatsProps {
   horselulImageUrl: string;
   heartImageUrl: string;
   dinodanceImageUrl: string;
+  awwwImageUrl: string;
   showTotals: boolean;
   showUsers: boolean;
   corner?: CornerPosition;
@@ -22,12 +23,15 @@ interface ComboStatsProps {
   horselulUsers: Record<string, number>;
   dinodanceTotal: number;
   dinodanceUsers: Record<string, number>;
+  awwwTotal: number;
+  awwwUsers: Record<string, number>;
 }
 
 export function ComboStats({
   horselulImageUrl,
   heartImageUrl,
   dinodanceImageUrl,
+  awwwImageUrl,
   showTotals,
   showUsers,
   corner = "bl",
@@ -37,6 +41,8 @@ export function ComboStats({
   horselulUsers,
   dinodanceTotal,
   dinodanceUsers,
+  awwwTotal,
+  awwwUsers,
 }: ComboStatsProps) {
   if (!showTotals && !showUsers) return null;
 
@@ -52,8 +58,12 @@ export function ComboStats({
     .sort(([, a], [, b]) => b - a)
     .slice(0, 10);
 
-  const hasAnyTotal = horselulTotal > 0 || heartsTotal > 0 || dinodanceTotal > 0;
-  const hasAnyUsers = horselulUsersList.length > 0 || heartUsersList.length > 0 || dinodanceUsersList.length > 0;
+  const awwwUsersList = Object.entries(awwwUsers)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10);
+
+  const hasAnyTotal = horselulTotal > 0 || heartsTotal > 0 || dinodanceTotal > 0 || awwwTotal > 0;
+  const hasAnyUsers = horselulUsersList.length > 0 || heartUsersList.length > 0 || dinodanceUsersList.length > 0 || awwwUsersList.length > 0;
 
   // Hide entire component if everything is zero
   if (showTotals && !showUsers && !hasAnyTotal) return null;
@@ -112,6 +122,7 @@ export function ComboStats({
   const leaderboards = [
     horselulUsersList.length > 0 ? "horselul" : null,
     dinodanceUsersList.length > 0 ? "dinodance" : null,
+    awwwUsersList.length > 0 ? "awww" : null,
     heartUsersList.length > 0 ? "heart" : null,
   ].filter(Boolean);
 
@@ -138,6 +149,17 @@ export function ComboStats({
               <img src={dinodanceImageUrl} alt="" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
               <span className="text-2xl font-bold tabular-nums text-white">
                 {dinodanceTotal.toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          {/* Awww total */}
+          {awwwTotal > 0 && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={awwwImageUrl} alt="" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
+              <span className="text-2xl font-bold tabular-nums text-white">
+                {awwwTotal.toLocaleString()}
               </span>
             </div>
           )}
@@ -178,7 +200,13 @@ export function ComboStats({
           {renderLeaderboard(dinodanceUsersList, dinodanceImageUrl, "h-5 w-5 object-contain")}
 
           {(leaderboards.indexOf("dinodance") !== -1 || leaderboards.indexOf("horselul") !== -1) &&
-            leaderboards.indexOf("heart") !== -1 && (
+            (leaderboards.indexOf("awww") !== -1 || leaderboards.indexOf("heart") !== -1) && (
+            <div className="h-px bg-zinc-700" />
+          )}
+
+          {renderLeaderboard(awwwUsersList, awwwImageUrl, "h-5 w-5 object-contain")}
+
+          {leaderboards.indexOf("awww") !== -1 && leaderboards.indexOf("heart") !== -1 && (
             <div className="h-px bg-zinc-700" />
           )}
 

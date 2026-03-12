@@ -7,12 +7,13 @@ import { useComboStorage } from "@/hooks/useComboStorage";
 import { HeartsCounter } from "@/components/HeartsCounter";
 import { DevControls } from "@/components/DevControls";
 import { ComboStats } from "@/components/ComboStats";
-import { UserHorses } from "@/components/UserHorses";
+import { PhysicsCreatures } from "@/components/UserHorses";
 import { FallingHearts, type HeartSpawnRequest } from "@/components/FallingHearts";
 
 const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
 const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
 const DEFAULT_DINODANCE_EMOTE_ID = "01FN4MWV0000071FCSB63SBDBN";
+const DEFAULT_AWWW_EMOTE_ID = "01JZ1V2MEAAA7V2JN3AWRS5RSE";
 
 // Size multiplier mapping (1-5 → 0.5x to 2x)
 const SIZE_MULTIPLIERS: Record<number, number> = {
@@ -40,9 +41,11 @@ export default function OverlayPage() {
   const horselulEmoteId = searchParams.get("emoteId") || DEFAULT_HORSELUL_EMOTE_ID;
   const heartEmoteId = searchParams.get("heartEmoteId") || DEFAULT_HEART_EMOTE_ID;
   const dinodanceEmoteId = searchParams.get("dinodanceEmoteId") || DEFAULT_DINODANCE_EMOTE_ID;
+  const awwwEmoteId = searchParams.get("awwwEmoteId") || DEFAULT_AWWW_EMOTE_ID;
   const horselulImage = get7TVUrl(horselulEmoteId);
   const heartImage = get7TVUrl(heartEmoteId);
   const dinodanceImage = get7TVUrl(dinodanceEmoteId);
+  const awwwImage = get7TVUrl(awwwEmoteId);
   const isDevMode = searchParams.get("dev") === "true";
   const showTotals = searchParams.get("showTotals") === "true";
   const showUsers = searchParams.get("showUsers") === "true";
@@ -57,11 +60,13 @@ export default function OverlayPage() {
   const [heartSpawnQueue, setHeartSpawnQueue] = useState<HeartSpawnRequest[]>([]);
   const [lastHorseUpdate, setLastHorseUpdate] = useState<{ username: string; timestamp: number } | null>(null);
   const [lastDinoUpdate, setLastDinoUpdate] = useState<{ username: string; timestamp: number } | null>(null);
+  const [lastAwwwUpdate, setLastAwwwUpdate] = useState<{ username: string; timestamp: number } | null>(null);
 
   const {
     addCombo,
     updateUserHorse,
     updateUserDino,
+    updateUserAwww,
     clearStorage,
     heartsTotal,
     heartsByUser,
@@ -71,6 +76,9 @@ export default function OverlayPage() {
     dinodanceTotal,
     dinodanceUsers,
     userDinos,
+    awwwTotal,
+    awwwUsers,
+    userAwwws,
     isLoaded
   } = useComboStorage(username);
 
@@ -80,6 +88,7 @@ export default function OverlayPage() {
     setHeartSpawnQueue([]);
     setLastHorseUpdate(null);
     setLastDinoUpdate(null);
+    setLastAwwwUpdate(null);
   }, [clearStorage]);
 
   const handleCombo = useCallback(
@@ -96,6 +105,11 @@ export default function OverlayPage() {
         setLastDinoUpdate({ username: event.username, timestamp: Date.now() });
       }
 
+      if (event.type === "awww") {
+        updateUserAwww(event.username, event.color || "#9147ff", corner);
+        setLastAwwwUpdate({ username: event.username, timestamp: Date.now() });
+      }
+
       if (event.type === "heart") {
         // Falling hearts mode
         if (fallingHeartsEnabled) {
@@ -106,7 +120,7 @@ export default function OverlayPage() {
         }
       }
     },
-    [addCombo, updateUserHorse, updateUserDino, fallingHeartsEnabled, corner]
+    [addCombo, updateUserHorse, updateUserDino, updateUserAwww, fallingHeartsEnabled, corner]
   );
 
   const { simulateRawMessage } = useTwitchChat({
@@ -139,6 +153,7 @@ export default function OverlayPage() {
           horselulImageUrl={horselulImage}
           heartImageUrl={heartImage}
           dinodanceImageUrl={dinodanceImage}
+          awwwImageUrl={awwwImage}
           showTotals={showTotals}
           showUsers={showUsers}
           corner={corner}
@@ -148,6 +163,8 @@ export default function OverlayPage() {
           horselulUsers={horselulUsers}
           dinodanceTotal={dinodanceTotal}
           dinodanceUsers={dinodanceUsers}
+          awwwTotal={awwwTotal}
+          awwwUsers={awwwUsers}
         />
       )}
 
@@ -156,25 +173,14 @@ export default function OverlayPage() {
         <HeartsCounter count={heartsTotal} imageUrl={heartImage} corner={corner} />
       )}
 
-      {/* User horses */}
-      {horselulImage && (
-        <UserHorses
-          imageUrl={horselulImage}
-          userHorses={userHorses}
-          lastUpdate={lastHorseUpdate}
-          corner={corner}
-        />
-      )}
-
-      {/* User dinos */}
-      {dinodanceImage && (
-        <UserHorses
-          imageUrl={dinodanceImage}
-          userHorses={userDinos}
-          lastUpdate={lastDinoUpdate}
-          corner={corner}
-        />
-      )}
+      {/* All creature types in shared physics world */}
+      <PhysicsCreatures
+        groups={[
+          { imageUrl: horselulImage, creatures: userHorses, lastUpdate: lastHorseUpdate },
+          { imageUrl: dinodanceImage, creatures: userDinos, lastUpdate: lastDinoUpdate },
+          { imageUrl: awwwImage, creatures: userAwwws, lastUpdate: lastAwwwUpdate, sizeScale: 2 },
+        ]}
+      />
 
       {/* Falling hearts */}
       {heartImage && fallingHeartsEnabled && (
@@ -194,6 +200,7 @@ export default function OverlayPage() {
           heartsTotal={heartsTotal}
           horselulTotal={horselulTotal}
           dinodanceTotal={dinodanceTotal}
+          awwwTotal={awwwTotal}
         />
       )}
     </div>

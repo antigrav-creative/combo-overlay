@@ -34,16 +34,23 @@ export interface ComboStorage {
     total: number;
     users: Record<string, number>;
   };
+  awww: {
+    total: number;
+    users: Record<string, number>;
+  };
   userHorses: Record<string, UserHorseData>;
   userDinos: Record<string, UserHorseData>;
+  userAwwws: Record<string, UserHorseData>;
 }
 
 const createEmptyStorage = (): ComboStorage => ({
   hearts: [],
   horselul: { total: 0, users: {} },
   dinodance: { total: 0, users: {} },
+  awww: { total: 0, users: {} },
   userHorses: {},
   userDinos: {},
+  userAwwws: {},
 });
 
 function getStorageKey(channel: string): string {
@@ -67,8 +74,10 @@ export function useComboStorage(channel: string) {
           hearts: parsed.hearts || [],
           horselul: parsed.horselul || { total: 0, users: {} },
           dinodance: parsed.dinodance || { total: 0, users: {} },
+          awww: parsed.awww || { total: 0, users: {} },
           userHorses: parsed.userHorses || {},
           userDinos: parsed.userDinos || {},
+          userAwwws: parsed.userAwwws || {},
         });
       }
     } catch (err) {
@@ -146,20 +155,23 @@ export function useComboStorage(channel: string) {
       setData((prev) => {
         const horseResult = processCreatures(prev.userHorses, prev.horselul, now);
         const dinoResult = processCreatures(prev.userDinos, prev.dinodance, now);
+        const awwwResult = processCreatures(prev.userAwwws, prev.awww, now);
 
         // Filter out expired hearts
         const newHearts = prev.hearts.filter((h) => now - h.timestamp < HEART_EXPIRY_MS);
         const heartsChanged = newHearts.length !== prev.hearts.length;
 
-        if (!horseResult.changed && !dinoResult.changed && !heartsChanged) return prev;
+        if (!horseResult.changed && !dinoResult.changed && !awwwResult.changed && !heartsChanged) return prev;
 
         return {
           ...prev,
           hearts: newHearts,
           horselul: horseResult.totals,
           dinodance: dinoResult.totals,
+          awww: awwwResult.totals,
           userHorses: horseResult.creatures,
           userDinos: dinoResult.creatures,
+          userAwwws: awwwResult.creatures,
         };
       });
     };
@@ -179,8 +191,8 @@ export function useComboStorage(channel: string) {
           hearts: [...prev.hearts, { username, timestamp: now }],
         };
       } else {
-        // horselul or dinodance — same structure
-        const key = type === "dinodance" ? "dinodance" : "horselul";
+        // horselul, dinodance, or awww — same structure
+        const key = type === "dinodance" ? "dinodance" : type === "awww" ? "awww" : "horselul";
         const current = prev[key];
         return {
           ...prev,
@@ -198,7 +210,7 @@ export function useComboStorage(channel: string) {
 
   // Shared logic for adding/updating a creature (horse or dino)
   const updateCreature = useCallback((
-    creatureKey: "userHorses" | "userDinos",
+    creatureKey: "userHorses" | "userDinos" | "userAwwws",
     username: string,
     color: string,
     corner: string = "bl",
@@ -269,6 +281,10 @@ export function useComboStorage(channel: string) {
     updateCreature("userDinos", username, color, corner);
   }, [updateCreature]);
 
+  const updateUserAwww = useCallback((username: string, color: string, corner: string = "bl") => {
+    updateCreature("userAwwws", username, color, corner);
+  }, [updateCreature]);
+
   const clearStorage = useCallback(() => {
     setData(createEmptyStorage());
     if (channel) {
@@ -291,6 +307,7 @@ export function useComboStorage(channel: string) {
     addCombo,
     updateUserHorse,
     updateUserDino,
+    updateUserAwww,
     clearStorage,
     heartsTotal,
     heartsByUser,
@@ -300,5 +317,8 @@ export function useComboStorage(channel: string) {
     dinodanceTotal: data.dinodance.total,
     dinodanceUsers: data.dinodance.users,
     userDinos: data.userDinos,
+    awwwTotal: data.awww.total,
+    awwwUsers: data.awww.users,
+    userAwwws: data.userAwwws,
   };
 }

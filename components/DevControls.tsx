@@ -10,6 +10,7 @@ interface DevControlsProps {
   heartsTotal: number;
   horselulTotal: number;
   dinodanceTotal: number;
+  awwwTotal: number;
 }
 
 // Some fun preset colors
@@ -31,6 +32,7 @@ export function DevControls({
   heartsTotal,
   horselulTotal,
   dinodanceTotal,
+  awwwTotal,
 }: DevControlsProps) {
   const [username, setUsername] = useState("testuser");
   const [color, setColor] = useState("#FF6B00");
@@ -133,7 +135,15 @@ export function DevControls({
           onClick={() => handleSimulate("dinodance")}
           className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-green-500"
         >
-          🦖 Dino
+          🦖 DinoDance
+        </button>
+      </div>
+      <div className="mb-4">
+        <button
+          onClick={() => handleSimulate("awww")}
+          className="w-full rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-cyan-500"
+        >
+          🥺 Awww
         </button>
       </div>
 
@@ -145,8 +155,9 @@ export function DevControls({
             <span>Hearts: {heartsTotal}</span>
             <span>Horseluls: {horselulTotal}</span>
           </div>
-          <div>
+          <div className="flex justify-between">
             <span>DinoDance: {dinodanceTotal}</span>
+            <span>Awww: {awwwTotal}</span>
           </div>
         </div>
       </div>

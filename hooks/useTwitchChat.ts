@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import tmi from "tmi.js";
 
-export type ComboType = "heart" | "horselul" | "dinodance";
+export type ComboType = "heart" | "horselul" | "dinodance" | "awww";
 
 export interface ComboEvent {
   type: ComboType;
@@ -21,7 +21,7 @@ interface UseTwitchChatOptions {
 }
 
 // Dev mode triggers - requires # prefix (e.g., #heart, #horselul)
-const DEV_TRIGGER_PATTERN = /^#(horselul|heart|hearts|dinodance)(\s|$)/i;
+const DEV_TRIGGER_PATTERN = /^#(horselul|heart|hearts|dino|dinodance|awww)(\s|$)/i;
 
 // Parse raw IRC tags from Twitch message
 function parseIRCTags(rawTags: string): Record<string, string> {
@@ -63,8 +63,10 @@ function processComboFromTags(
       type = "heart";
     } else if (giftLower === "horselul") {
       type = "horselul";
-    } else if (giftLower === "dinodance") {
+    } else if (giftLower === "dino" || giftLower === "dinodance") {
       type = "dinodance";
+    } else if (giftLower === "awww") {
+      type = "awww";
     }
 
     if (type) {
@@ -129,8 +131,10 @@ export function useTwitchChat({
           type = "heart";
         } else if (msgLower.includes("horselul")) {
           type = "horselul";
-        } else if (msgLower.includes("dinodance")) {
+        } else if (msgLower.includes("dino")) {
           type = "dinodance";
+        } else if (msgLower.includes("awww")) {
+          type = "awww";
         }
 
         if (type) {
@@ -146,7 +150,8 @@ export function useTwitchChat({
           const trigger = devMatch[1].toLowerCase();
           let type: ComboType;
           if (trigger === "heart" || trigger === "hearts") type = "heart";
-          else if (trigger === "dinodance") type = "dinodance";
+          else if (trigger === "dino" || trigger === "dinodance") type = "dinodance";
+          else if (trigger === "awww") type = "awww";
           else type = "horselul";
           onComboRef.current({ type, username, color, bits: type === "heart" ? 5 : 50, timestamp: Date.now() });
         }

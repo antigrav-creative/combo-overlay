@@ -7,6 +7,7 @@ import Image from "next/image";
 const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
 const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
 const DEFAULT_DINODANCE_EMOTE_ID = "01FN4MWV0000071FCSB63SBDBN";
+const DEFAULT_AWWW_EMOTE_ID = "01JZ1V2MEAAA7V2JN3AWRS5RSE";
 
 function get7TVUrl(emoteId: string): string {
   return `https://cdn.7tv.app/emote/${emoteId}/4x.avif`;
@@ -19,12 +20,14 @@ export default function SetupPage() {
   const [horselulEmoteId, setHorselulEmoteId] = useState(DEFAULT_HORSELUL_EMOTE_ID);
   const [heartEmoteId, setHeartEmoteId] = useState(DEFAULT_HEART_EMOTE_ID);
   const [dinodanceEmoteId, setDinodanceEmoteId] = useState(DEFAULT_DINODANCE_EMOTE_ID);
+  const [awwwEmoteId, setAwwwEmoteId] = useState(DEFAULT_AWWW_EMOTE_ID);
   const [devMode, setDevMode] = useState(false);
   const [showTotals, setShowTotals] = useState(true);
   const [showUsers, setShowUsers] = useState(false);
   const [horselulError, setHorselulError] = useState(false);
   const [heartError, setHeartError] = useState(false);
   const [dinodanceError, setDinodanceError] = useState(false);
+  const [awwwError, setAwwwError] = useState(false);
   const [size, setSize] = useState(3);
   const [corner, setCorner] = useState<"bl" | "tl" | "br" | "tr">("bl");
   const [fallingHearts, setFallingHearts] = useState(true);
@@ -39,9 +42,10 @@ export default function SetupPage() {
   const horselulUrl = get7TVUrl(horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID);
   const heartUrl = get7TVUrl(heartEmoteId || DEFAULT_HEART_EMOTE_ID);
   const dinodanceUrl = get7TVUrl(dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID);
+  const awwwUrl = get7TVUrl(awwwEmoteId || DEFAULT_AWWW_EMOTE_ID);
   
   const generatedUrl = channel
-    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}&dinodanceEmoteId=${dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
+    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}&dinodanceEmoteId=${dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID}&awwwEmoteId=${awwwEmoteId || DEFAULT_AWWW_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
     : null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -93,7 +97,7 @@ export default function SetupPage() {
           </div>
 
           {/* Emote Settings */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {/* Horselul Emote */}
             <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
               <label
@@ -222,7 +226,46 @@ export default function SetupPage() {
                   </div>
                 )}
               </div>
-              <p className="mt-2 text-xs text-zinc-500">Dino creatures</p>
+              <p className="mt-2 text-xs text-zinc-500">DinoDance creatures</p>
+            </div>
+
+            {/* Awww Emote */}
+            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+              <label
+                htmlFor="awwwEmoteId"
+                className="mb-2 block text-sm font-medium text-zinc-300"
+              >
+                Awww Emote ID
+              </label>
+              <input
+                id="awwwEmoteId"
+                type="text"
+                value={awwwEmoteId}
+                onChange={(e) => {
+                  setAwwwEmoteId(e.target.value.trim());
+                  setAwwwError(false);
+                }}
+                placeholder={DEFAULT_AWWW_EMOTE_ID}
+                className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none transition-colors focus:border-purple-500"
+              />
+              <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
+                {!awwwError ? (
+                  <Image
+                    src={awwwUrl}
+                    alt="Awww emote preview"
+                    width={64}
+                    height={64}
+                    className="object-contain"
+                    onError={() => setAwwwError(true)}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="text-center text-xs text-red-400">
+                    Failed to load
+                  </div>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-zinc-500">Awww creatures (2x size)</p>
             </div>
           </div>
 
