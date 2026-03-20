@@ -39,9 +39,28 @@ export default function OverlayPage() {
   const corner = (searchParams.get("corner") || "bl") as CornerPosition;
   const fallingEnabled = searchParams.get("fallingHearts") !== "false";
 
-  // Parse items from URL or use defaults
+  // Parse items from URL, legacy params, or defaults
   const items: ComboItemConfig[] = useMemo(() => {
-    return deserializeItems(searchParams.get("items")) || DEFAULT_ITEMS;
+    const fromItems = deserializeItems(searchParams.get("items"));
+    if (fromItems) return fromItems;
+
+    // Legacy fallback: old URLs used individual emote ID params
+    const legacyEmoteId = searchParams.get("emoteId");
+    const legacyHeartId = searchParams.get("heartEmoteId");
+    const legacyDinoId = searchParams.get("dinodanceEmoteId");
+    const legacyAwwwId = searchParams.get("awwwEmoteId");
+
+    if (legacyEmoteId || legacyHeartId || legacyDinoId || legacyAwwwId) {
+      return DEFAULT_ITEMS.map((item) => {
+        if (item.id === "horselul" && legacyEmoteId) return { ...item, emoteId: legacyEmoteId };
+        if (item.id === "heart" && legacyHeartId) return { ...item, emoteId: legacyHeartId };
+        if (item.id === "dinodance" && legacyDinoId) return { ...item, emoteId: legacyDinoId };
+        if (item.id === "awww" && legacyAwwwId) return { ...item, emoteId: legacyAwwwId };
+        return item;
+      });
+    }
+
+    return DEFAULT_ITEMS;
   }, [searchParams]);
 
   const [heartSpawnQueue, setHeartSpawnQueue] = useState<HeartSpawnRequest[]>([]);
@@ -110,9 +129,8 @@ export default function OverlayPage() {
   );
 
   const handleSimulateCheer = useCallback(
-    (bits: number, fakeUsername: string, color: string | null) => {
-      // Use the chat hook's decomposition
-      simulateCheer(bits, fakeUsername, color || undefined);
+    (bits: number, fakeUsername: string, color: string | null, message?: string) => {
+      simulateCheer(bits, fakeUsername, color || undefined, message);
     },
     [simulateCheer]
   );

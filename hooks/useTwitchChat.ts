@@ -31,17 +31,67 @@ function parseIRCTags(rawTags: string): Record<string, string> {
   return tags;
 }
 
-// Fire onCombo events for a cheer by decomposing bits into items
+const CHEER_PATTERN = /cheer(\d+)/gi;
+
+// Build a cost→item lookup for exact matching
+function buildCostMap(items: ComboItemConfig[]): Map<number, ComboItemConfig> {
+  const map = new Map<number, ComboItemConfig>();
+  // If multiple items have the same cost, first one wins
+  for (const item of items) {
+    if (!map.has(item.cost)) {
+      map.set(item.cost, item);
+    }
+  }
+  return map;
+}
+
+/**
+ * Fire onCombo events for a cheer.
+ * 1. Parse individual CheerN amounts from message text
+ * 2. For each amount, exact-match to an item by cost → fire that specific item
+ * 3. For amounts with no exact match → greedy decompose that amount
+ * 4. If no cheers found in message, greedy decompose the total from tags.bits
+ */
 function fireCheerEvents(
   bits: number,
   username: string,
   color: string | null,
   items: ComboItemConfig[],
-  onCombo: (event: ComboEvent) => void
+  onCombo: (event: ComboEvent) => void,
+  message?: string,
 ) {
-  const decomposed = decomposeCheer(bits, items);
   const now = Date.now();
+  const costMap = buildCostMap(items);
 
+  // Try to parse individual cheers from message
+  if (message) {
+    const matches = [...message.matchAll(CHEER_PATTERN)];
+    if (matches.length > 0) {
+      for (const match of matches) {
+        const amount = parseInt(match[1], 10);
+        const exactItem = costMap.get(amount);
+
+        if (exactItem) {
+          // Exact match — user chose this item
+          onCombo({ itemId: exactItem.id, username, color, bits: amount, timestamp: now });
+        } else {
+          // No exact match — greedy decompose this individual amount
+          const decomposed = decomposeCheer(amount, items);
+          for (const { itemId, count } of decomposed) {
+            const itemConfig = items.find((i) => i.id === itemId);
+            const itemCost = itemConfig?.cost ?? amount;
+            for (let i = 0; i < count; i++) {
+              onCombo({ itemId, username, color, bits: itemCost, timestamp: now });
+            }
+          }
+        }
+      }
+      return;
+    }
+  }
+
+  // Fallback: no cheers in message, greedy decompose the total
+  const decomposed = decomposeCheer(bits, items);
   for (const { itemId, count } of decomposed) {
     const itemConfig = items.find((i) => i.id === itemId);
     const itemCost = itemConfig?.cost ?? bits;
@@ -131,7 +181,7 @@ export function useTwitchChat({
       if (tags.bits) {
         const bits = parseInt(tags.bits as string, 10);
         if (bits > 0) {
-          fireCheerEvents(bits, username, color, itemsRef.current, onComboRef.current);
+          fireCheerEvents(bits, username, color, itemsRef.current, onComboRef.current, message);
           return;
         }
       }
@@ -216,8 +266,8 @@ export function useTwitchChat({
 
   // Simulate a cheer with a specific bit amount (decomposed into items)
   const simulateCheer = useCallback(
-    (bits: number, username: string = "testuser", color?: string) => {
-      fireCheerEvents(bits, username.toLowerCase(), color || null, itemsRef.current, onComboRef.current);
+    (bits: number, username: string = "testuser", color?: string, message?: string) => {
+      fireCheerEvents(bits, username.toLowerCase(), color || null, itemsRef.current, onComboRef.current, message);
     },
     []
   );

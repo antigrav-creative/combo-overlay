@@ -7,7 +7,7 @@ interface DevControlsProps {
   items: ComboItemConfig[];
   itemTotals: Record<string, number>;
   onSimulate: (itemId: string, username: string, color: string | null) => void;
-  onSimulateCheer?: (bits: number, username: string, color: string | null) => void;
+  onSimulateCheer?: (bits: number, username: string, color: string | null, message?: string) => void;
   onSimulateRaw?: (rawMessage: string) => void;
   onClear: () => void;
   timeOffset: number;
@@ -43,7 +43,7 @@ export function DevControls({
   const [username, setUsername] = useState("testuser");
   const [color, setColor] = useState("#FF6B00");
   const [useColor, setUseColor] = useState(true);
-  const [cheerBits, setCheerBits] = useState("170");
+  const [cheerMessage, setCheerMessage] = useState("Cheer50 Cheer50 Cheer50");
   const [isMinimized, setIsMinimized] = useState(false);
 
   if (isMinimized) {
@@ -134,26 +134,28 @@ export function DevControls({
       {/* Simulate cheer */}
       {onSimulateCheer && (
         <div className="mb-4">
-          <label className="mb-1 block text-xs text-zinc-400">Simulate Cheer (bits)</label>
+          <label className="mb-1 block text-xs text-zinc-400">Simulate Cheer Message</label>
           <div className="flex gap-2">
             <input
-              type="number"
-              value={cheerBits}
-              onChange={(e) => setCheerBits(e.target.value)}
+              type="text"
+              value={cheerMessage}
+              onChange={(e) => setCheerMessage(e.target.value)}
               className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="170"
-              min="1"
+              placeholder="Cheer50 Cheer50 Cheer50"
             />
             <button
               onClick={() => {
-                const bits = parseInt(cheerBits, 10);
-                if (bits > 0) onSimulateCheer(bits, username, useColor ? color : null);
+                // Sum all CheerN amounts to get total bits
+                const matches = [...cheerMessage.matchAll(/cheer(\d+)/gi)];
+                const totalBits = matches.reduce((sum, m) => sum + parseInt(m[1], 10), 0);
+                if (totalBits > 0) onSimulateCheer(totalBits, username, useColor ? color : null, cheerMessage);
               }}
               className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-amber-500"
             >
               Cheer
             </button>
           </div>
+          <p className="mt-1 text-xs text-zinc-500">e.g. "Cheer50 Cheer50" = 2 horseluls, "Cheer150" = greedy decompose</p>
         </div>
       )}
 
