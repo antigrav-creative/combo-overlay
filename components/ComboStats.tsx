@@ -1,5 +1,7 @@
 "use client";
 
+import { get7TVUrl } from "@/types/combo";
+
 type CornerPosition = "bl" | "tl" | "br" | "tr";
 
 const CORNER_CLASSES: Record<CornerPosition, string> = {
@@ -9,80 +11,56 @@ const CORNER_CLASSES: Record<CornerPosition, string> = {
   tr: "top-8 right-8",
 };
 
+export interface ComboItemStats {
+  id: string;
+  name: string;
+  imageUrl: string;
+  displayType: "creature" | "falling";
+  total: number;
+  users: Record<string, number>;
+}
+
 interface ComboStatsProps {
-  horselulImageUrl: string;
-  heartImageUrl: string;
-  dinodanceImageUrl: string;
-  awwwImageUrl: string;
+  items: ComboItemStats[];
   showTotals: boolean;
   showUsers: boolean;
   corner?: CornerPosition;
-  heartsTotal: number;
-  heartsByUser: Record<string, number>;
-  horselulTotal: number;
-  horselulUsers: Record<string, number>;
-  dinodanceTotal: number;
-  dinodanceUsers: Record<string, number>;
-  awwwTotal: number;
-  awwwUsers: Record<string, number>;
 }
 
 export function ComboStats({
-  horselulImageUrl,
-  heartImageUrl,
-  dinodanceImageUrl,
-  awwwImageUrl,
+  items,
   showTotals,
   showUsers,
   corner = "bl",
-  heartsTotal,
-  heartsByUser,
-  horselulTotal,
-  horselulUsers,
-  dinodanceTotal,
-  dinodanceUsers,
-  awwwTotal,
-  awwwUsers,
 }: ComboStatsProps) {
   if (!showTotals && !showUsers) return null;
 
-  const horselulUsersList = Object.entries(horselulUsers)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
+  const itemsWithTotals = items.filter((i) => i.total > 0);
+  const itemsWithUsers = items.filter(
+    (i) => Object.keys(i.users).length > 0
+  );
 
-  const heartUsersList = Object.entries(heartsByUser)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
+  const hasAnyTotal = itemsWithTotals.length > 0;
+  const hasAnyUsers = itemsWithUsers.length > 0;
 
-  const dinodanceUsersList = Object.entries(dinodanceUsers)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
-
-  const awwwUsersList = Object.entries(awwwUsers)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
-
-  const hasAnyTotal = horselulTotal > 0 || heartsTotal > 0 || dinodanceTotal > 0 || awwwTotal > 0;
-  const hasAnyUsers = horselulUsersList.length > 0 || heartUsersList.length > 0 || dinodanceUsersList.length > 0 || awwwUsersList.length > 0;
-
-  // Hide entire component if everything is zero
   if (showTotals && !showUsers && !hasAnyTotal) return null;
   if (showUsers && !showTotals && !hasAnyUsers) return null;
   if (showTotals && showUsers && !hasAnyTotal && !hasAnyUsers) return null;
 
-  // Leaderboard section helper
-  const renderLeaderboard = (
-    usersList: [string, number][],
-    imageUrl: string,
-    imgClass: string,
-    isHeart?: boolean,
-    clipId?: string,
-  ) => {
+  const renderLeaderboard = (item: ComboItemStats) => {
+    const usersList = Object.entries(item.users)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10);
+
     if (usersList.length === 0) return null;
+
+    const clipId = `heart-clip-lb-${item.id}`;
+    const isFalling = item.displayType === "falling";
+
     return (
-      <div>
+      <div key={item.id}>
         <div className="mb-2 flex items-center gap-2">
-          {isHeart ? (
+          {isFalling ? (
             <div className="relative h-5 w-5">
               <svg className="absolute h-0 w-0">
                 <defs>
@@ -93,12 +71,12 @@ export function ComboStats({
               </svg>
               <div className="h-full w-full" style={{ clipPath: `url(#${clipId})` }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageUrl} alt="" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                <img src={item.imageUrl} alt="" className="h-full w-full object-cover" crossOrigin="anonymous" />
               </div>
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imageUrl} alt="" className={imgClass} crossOrigin="anonymous" />
+            <img src={item.imageUrl} alt="" className="h-5 w-5 object-contain" crossOrigin="anonymous" />
           )}
           <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
             Leaderboard
@@ -118,99 +96,53 @@ export function ComboStats({
     );
   };
 
-  // Collect visible leaderboards for dividers
-  const leaderboards = [
-    horselulUsersList.length > 0 ? "horselul" : null,
-    dinodanceUsersList.length > 0 ? "dinodance" : null,
-    awwwUsersList.length > 0 ? "awww" : null,
-    heartUsersList.length > 0 ? "heart" : null,
-  ].filter(Boolean);
-
   return (
     <div className={`fixed ${CORNER_CLASSES[corner]} z-50 flex flex-col gap-3`}>
       {/* Totals */}
       {showTotals && hasAnyTotal && (
         <div className="flex flex-col gap-2 rounded-2xl bg-black/60 px-5 py-4 backdrop-blur-sm">
-          {/* Horselul total */}
-          {horselulTotal > 0 && (
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={horselulImageUrl} alt="" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
-              <span className="text-2xl font-bold tabular-nums text-white">
-                {horselulTotal.toLocaleString()}
-              </span>
-            </div>
-          )}
+          {itemsWithTotals.map((item) => {
+            const clipId = `heart-clip-total-${item.id}`;
+            const isFalling = item.displayType === "falling";
 
-          {/* DinoDance total */}
-          {dinodanceTotal > 0 && (
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={dinodanceImageUrl} alt="" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
-              <span className="text-2xl font-bold tabular-nums text-white">
-                {dinodanceTotal.toLocaleString()}
-              </span>
-            </div>
-          )}
-
-          {/* Awww total */}
-          {awwwTotal > 0 && (
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={awwwImageUrl} alt="" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
-              <span className="text-2xl font-bold tabular-nums text-white">
-                {awwwTotal.toLocaleString()}
-              </span>
-            </div>
-          )}
-
-          {/* Hearts total */}
-          {heartsTotal > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10">
-                <svg className="absolute h-0 w-0">
-                  <defs>
-                    <clipPath id="heart-clip-stats" clipPathUnits="objectBoundingBox">
-                      <path d="M0.5,0.15 C0.35,-0.05 0.05,0.05 0.05,0.35 C0.05,0.55 0.25,0.75 0.5,1 C0.75,0.75 0.95,0.55 0.95,0.35 C0.95,0.05 0.65,-0.05 0.5,0.15 Z" />
-                    </clipPath>
-                  </defs>
-                </svg>
-                <div className="h-full w-full" style={{ clipPath: "url(#heart-clip-stats)" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={heartImageUrl} alt="" className="h-full w-full object-cover" crossOrigin="anonymous" />
-                </div>
+            return (
+              <div key={item.id} className="flex items-center gap-3">
+                {isFalling ? (
+                  <div className="relative h-10 w-10">
+                    <svg className="absolute h-0 w-0">
+                      <defs>
+                        <clipPath id={clipId} clipPathUnits="objectBoundingBox">
+                          <path d="M0.5,0.15 C0.35,-0.05 0.05,0.05 0.05,0.35 C0.05,0.55 0.25,0.75 0.5,1 C0.75,0.75 0.95,0.55 0.95,0.35 C0.95,0.05 0.65,-0.05 0.5,0.15 Z" />
+                        </clipPath>
+                      </defs>
+                    </svg>
+                    <div className="h-full w-full" style={{ clipPath: `url(#${clipId})` }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.imageUrl} alt="" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                    </div>
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.imageUrl} alt="" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
+                )}
+                <span className="text-2xl font-bold tabular-nums text-white">
+                  {item.total.toLocaleString()}
+                </span>
               </div>
-              <span className="text-2xl font-bold tabular-nums text-white">
-                {heartsTotal.toLocaleString()}
-              </span>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
-      {/* User breakdowns */}
+      {/* User leaderboards */}
       {showUsers && hasAnyUsers && (
         <div className="flex flex-col gap-3 rounded-2xl bg-black/60 px-5 py-4 backdrop-blur-sm">
-          {renderLeaderboard(horselulUsersList, horselulImageUrl, "h-5 w-5 object-contain")}
-
-          {leaderboards.indexOf("horselul") !== -1 && leaderboards.indexOf("dinodance") !== -1 && (
-            <div className="h-px bg-zinc-700" />
-          )}
-
-          {renderLeaderboard(dinodanceUsersList, dinodanceImageUrl, "h-5 w-5 object-contain")}
-
-          {(leaderboards.indexOf("dinodance") !== -1 || leaderboards.indexOf("horselul") !== -1) &&
-            (leaderboards.indexOf("awww") !== -1 || leaderboards.indexOf("heart") !== -1) && (
-            <div className="h-px bg-zinc-700" />
-          )}
-
-          {renderLeaderboard(awwwUsersList, awwwImageUrl, "h-5 w-5 object-contain")}
-
-          {leaderboards.indexOf("awww") !== -1 && leaderboards.indexOf("heart") !== -1 && (
-            <div className="h-px bg-zinc-700" />
-          )}
-
-          {renderLeaderboard(heartUsersList, heartImageUrl, "h-5 w-5 object-cover", true, "heart-clip-stats-small")}
+          {itemsWithUsers.map((item, idx) => (
+            <div key={item.id}>
+              {idx > 0 && <div className="mb-3 h-px bg-zinc-700" />}
+              {renderLeaderboard(item)}
+            </div>
+          ))}
         </div>
       )}
     </div>

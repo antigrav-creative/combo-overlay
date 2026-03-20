@@ -2,49 +2,59 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import tmi from "tmi.js";
-
-export type ComboType = "heart" | "horselul" | "dinodance" | "awww";
-
-export interface ComboEvent {
-  type: ComboType;
-  username: string;
-  color: string | null;
-  bits: number;
-  timestamp: number;
-}
+import type { ComboItemConfig, ComboEvent } from "@/types/combo";
+import { decomposeCheer } from "@/types/combo";
 
 interface UseTwitchChatOptions {
   channel: string;
+  items: ComboItemConfig[];
   enabled?: boolean;
   devMode?: boolean;
   onCombo: (event: ComboEvent) => void;
 }
 
-// Dev mode triggers - requires # prefix (e.g., #heart, #horselul)
-const DEV_TRIGGER_PATTERN = /^#(horselul|heart|hearts|dino|dinodance|awww)(\s|$)/i;
-
 // Parse raw IRC tags from Twitch message
 function parseIRCTags(rawTags: string): Record<string, string> {
   const tags: Record<string, string> = {};
   if (!rawTags.startsWith("@")) return tags;
-  
-  const tagString = rawTags.slice(1); // Remove @ prefix
+
+  const tagString = rawTags.slice(1);
   const pairs = tagString.split(";");
-  
+
   for (const pair of pairs) {
     const [key, value] = pair.split("=");
     if (key) {
-      // Unescape IRC values (\s = space, \n = newline, etc.)
       tags[key] = (value || "").replace(/\\s/g, " ").replace(/\\n/g, "\n").replace(/\\\\/g, "\\");
     }
   }
-  
+
   return tags;
 }
 
-// Process combo from parsed IRC tags
+// Fire onCombo events for a cheer by decomposing bits into items
+function fireCheerEvents(
+  bits: number,
+  username: string,
+  color: string | null,
+  items: ComboItemConfig[],
+  onCombo: (event: ComboEvent) => void
+) {
+  const decomposed = decomposeCheer(bits, items);
+  const now = Date.now();
+
+  for (const { itemId, count } of decomposed) {
+    const itemConfig = items.find((i) => i.id === itemId);
+    const itemCost = itemConfig?.cost ?? bits;
+    for (let i = 0; i < count; i++) {
+      onCombo({ itemId, username, color, bits: itemCost, timestamp: now });
+    }
+  }
+}
+
+// Process combo from parsed IRC tags (onetapgiftredeemed)
 function processComboFromTags(
   tags: Record<string, string>,
+  items: ComboItemConfig[],
   onCombo: (event: ComboEvent) => void
 ): boolean {
   const msgId = tags["msg-id"];
@@ -53,25 +63,15 @@ function processComboFromTags(
   const displayName = tags["msg-param-user-display-name"] || tags["display-name"] || "anonymous";
   const color = tags["color"] || null;
 
-  // Check for onetapgiftredeemed with bits and gift ID
   if (msgId === "onetapgiftredeemed" && bitsSpent && giftId) {
     const bits = parseInt(bitsSpent, 10);
     const giftLower = giftId.toLowerCase();
 
-    let type: ComboType | null = null;
-    if (giftLower === "heart" || giftLower === "hearts") {
-      type = "heart";
-    } else if (giftLower === "horselul") {
-      type = "horselul";
-    } else if (giftLower === "dino" || giftLower === "dinodance") {
-      type = "dinodance";
-    } else if (giftLower === "awww") {
-      type = "awww";
-    }
-
-    if (type) {
+    // Match giftId against configured items
+    const matchedItem = items.find((item) => item.id.toLowerCase() === giftLower);
+    if (matchedItem) {
       onCombo({
-        type,
+        itemId: matchedItem.id,
         username: displayName.toLowerCase(),
         color,
         bits,
@@ -80,22 +80,28 @@ function processComboFromTags(
       return true;
     }
   }
-  
+
   return false;
 }
 
 export function useTwitchChat({
   channel,
+  items,
   enabled = true,
   devMode = false,
   onCombo,
 }: UseTwitchChatOptions) {
   const clientRef = useRef<tmi.Client | null>(null);
   const onComboRef = useRef(onCombo);
+  const itemsRef = useRef(items);
 
   useEffect(() => {
     onComboRef.current = onCombo;
   }, [onCombo]);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   useEffect(() => {
     if (!enabled || !channel) return;
@@ -111,7 +117,7 @@ export function useTwitchChat({
 
     clientRef.current = client;
 
-    // Handle regular chat messages (for dev mode triggers and bit cheers)
+    // Handle regular chat messages (cheers + dev mode triggers)
     const handleMessage = (
       _channel: string,
       tags: tmi.ChatUserstate,
@@ -121,39 +127,32 @@ export function useTwitchChat({
       const username = (tags.username || tags["display-name"] || "anonymous").toLowerCase();
       const color = tags.color || null;
 
-      // Check if this message has bits attached (regular bit cheer)
+      // Check if this message has bits attached (cheer)
       if (tags.bits) {
         const bits = parseInt(tags.bits as string, 10);
-        const msgLower = message.toLowerCase();
-
-        let type: ComboType | null = null;
-        if (msgLower.includes("heart")) {
-          type = "heart";
-        } else if (msgLower.includes("horselul")) {
-          type = "horselul";
-        } else if (msgLower.includes("dino")) {
-          type = "dinodance";
-        } else if (msgLower.includes("awww")) {
-          type = "awww";
-        }
-
-        if (type) {
-          onComboRef.current({ type, username, color, bits, timestamp: Date.now() });
+        if (bits > 0) {
+          fireCheerEvents(bits, username, color, itemsRef.current, onComboRef.current);
           return;
         }
       }
 
-      // Dev mode: check for #heart or #horselul triggers
+      // Dev mode: check for # + itemId triggers
       if (devMode) {
-        const devMatch = message.trim().match(DEV_TRIGGER_PATTERN);
-        if (devMatch) {
-          const trigger = devMatch[1].toLowerCase();
-          let type: ComboType;
-          if (trigger === "heart" || trigger === "hearts") type = "heart";
-          else if (trigger === "dino" || trigger === "dinodance") type = "dinodance";
-          else if (trigger === "awww") type = "awww";
-          else type = "horselul";
-          onComboRef.current({ type, username, color, bits: type === "heart" ? 5 : 50, timestamp: Date.now() });
+        const trimmed = message.trim().toLowerCase();
+        if (trimmed.startsWith("#")) {
+          const trigger = trimmed.slice(1).split(/\s/)[0];
+          const matchedItem = itemsRef.current.find(
+            (item) => item.id.toLowerCase() === trigger || item.name.toLowerCase() === trigger
+          );
+          if (matchedItem) {
+            onComboRef.current({
+              itemId: matchedItem.id,
+              username,
+              color,
+              bits: matchedItem.cost,
+              timestamp: Date.now(),
+            });
+          }
         }
       }
     };
@@ -164,25 +163,24 @@ export function useTwitchChat({
       message: { [property: string]: unknown }
     ) => {
       const raw = message.raw as string | undefined;
-      
+
       if (devMode && raw) {
         console.log("[RAW IRC]", raw);
       }
-      
+
       // Parse directly from raw IRC if available
       if (raw && raw.startsWith("@")) {
         const spaceIndex = raw.indexOf(" ");
         if (spaceIndex > 0) {
           const tagsPart = raw.slice(0, spaceIndex);
           const tags = parseIRCTags(tagsPart);
-          
+
           if (devMode) {
             console.log("[PARSED TAGS]", tags);
           }
-          
-          // Check if this is our combo redemption
+
           if (tags["msg-id"] === "onetapgiftredeemed") {
-            processComboFromTags(tags, onComboRef.current);
+            processComboFromTags(tags, itemsRef.current, onComboRef.current);
           }
         }
       }
@@ -201,17 +199,25 @@ export function useTwitchChat({
     };
   }, [channel, enabled, devMode]);
 
-  // Simulate a simple combo event
-  const simulateMessage = useCallback(
-    (type: ComboType, username: string = "testuser", color?: string) => {
-      const bits = type === "heart" ? 5 : 50;
+  // Simulate a combo event for a specific item
+  const simulateCombo = useCallback(
+    (itemId: string, username: string = "testuser", color?: string) => {
+      const item = itemsRef.current.find((i) => i.id === itemId);
       onComboRef.current({
-        type,
+        itemId,
         username: username.toLowerCase(),
         color: color || null,
-        bits,
+        bits: item?.cost ?? 0,
         timestamp: Date.now(),
       });
+    },
+    []
+  );
+
+  // Simulate a cheer with a specific bit amount (decomposed into items)
+  const simulateCheer = useCallback(
+    (bits: number, username: string = "testuser", color?: string) => {
+      fireCheerEvents(bits, username.toLowerCase(), color || null, itemsRef.current, onComboRef.current);
     },
     []
   );
@@ -225,12 +231,12 @@ export function useTwitchChat({
           const tagsPart = rawMessage.slice(0, spaceIndex);
           const tags = parseIRCTags(tagsPart);
           console.log("[SIMULATE RAW] Parsed tags:", tags);
-          processComboFromTags(tags, onComboRef.current);
+          processComboFromTags(tags, itemsRef.current, onComboRef.current);
         }
       }
     },
     []
   );
 
-  return { simulateMessage, simulateRawMessage };
+  return { simulateCombo, simulateCheer, simulateRawMessage };
 }

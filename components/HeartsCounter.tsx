@@ -11,13 +11,13 @@ const CORNER_CLASSES: Record<CornerPosition, string> = {
   tr: "top-8 right-8",
 };
 
-interface HeartsCounterProps {
+interface FallingCounterProps {
   count: number;
   imageUrl: string;
   corner?: CornerPosition;
 }
 
-export function HeartsCounter({ count, imageUrl, corner = "bl" }: HeartsCounterProps) {
+export function FallingCounter({ count, imageUrl, corner = "bl" }: FallingCounterProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [prevCount, setPrevCount] = useState(count);
 
@@ -45,7 +45,6 @@ export function HeartsCounter({ count, imageUrl, corner = "bl" }: HeartsCounterP
         ${isAnimating ? "scale-110" : "scale-100"}
       `}
     >
-      {/* Heart shape with clipped emote */}
       <div
         className={`
           relative h-12 w-12
@@ -53,7 +52,6 @@ export function HeartsCounter({ count, imageUrl, corner = "bl" }: HeartsCounterP
           ${isAnimating ? "scale-125" : "scale-100"}
         `}
       >
-        {/* SVG clip path definition */}
         <svg className="absolute h-0 w-0">
           <defs>
             <clipPath id="heart-clip" clipPathUnits="objectBoundingBox">
@@ -61,8 +59,6 @@ export function HeartsCounter({ count, imageUrl, corner = "bl" }: HeartsCounterP
             </clipPath>
           </defs>
         </svg>
-
-        {/* Emote clipped to heart shape */}
         <div
           className="h-full w-full"
           style={{ clipPath: "url(#heart-clip)" }}

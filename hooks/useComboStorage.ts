@@ -1,63 +1,52 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { ComboType } from "./useTwitchChat";
+import type { ComboItemConfig } from "@/types/combo";
 
-// Expiration times in milliseconds
-const HORSE_SHRINK_MS = 60 * 60 * 1000; // 1 hour — shrink by 1 per hour of inactivity
-const HORSE_REMOVE_MS = 12 * 60 * 60 * 1000; // 12 hours — full removal (same as hearts)
-const HEART_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
+const CREATURE_REMOVE_MS = 12 * 60 * 60 * 1000; // 12 hours
+const FALLING_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-// Individual heart redemption with timestamp
-interface HeartRedemption {
+export interface UserCreatureData {
+  color: string;
+  count: number; // total redemptions (for stats)
+  x: number;
+  y: number;
+  timestamp: number; // last activity time — for 12h removal
+  bonusUnits: number; // extra size units above 1x at time of last update
+  bonusSince: number; // when bonusUnits was set — for computing current shrink
+}
+
+interface FallingRedemption {
   username: string;
   timestamp: number;
 }
 
-// User horse data for persistent horse mode
-export interface UserHorseData {
-  color: string;
-  count: number;
-  x: number; // percentage 0-100
-  y: number; // percentage 50-100 (bottom half)
-  timestamp: number; // when the horse was last updated (for shrink/expiry calculation)
-  lastShrinkAt?: number; // when we last applied a shrink (for catch-up after page reload)
+interface ItemData {
+  total: number;
+  users: Record<string, number>;
+  redemptions: FallingRedemption[]; // for "falling" display type
+  creatures: Record<string, UserCreatureData>; // for "creature" display type
 }
 
 export interface ComboStorage {
-  hearts: HeartRedemption[];
-  horselul: {
-    total: number;
-    users: Record<string, number>;
-  };
-  dinodance: {
-    total: number;
-    users: Record<string, number>;
-  };
-  awww: {
-    total: number;
-    users: Record<string, number>;
-  };
-  userHorses: Record<string, UserHorseData>;
-  userDinos: Record<string, UserHorseData>;
-  userAwwws: Record<string, UserHorseData>;
+  items: Record<string, ItemData>;
 }
 
-const createEmptyStorage = (): ComboStorage => ({
-  hearts: [],
-  horselul: { total: 0, users: {} },
-  dinodance: { total: 0, users: {} },
-  awww: { total: 0, users: {} },
-  userHorses: {},
-  userDinos: {},
-  userAwwws: {},
-});
+function createEmptyItemData(): ItemData {
+  return { total: 0, users: {}, redemptions: [], creatures: {} };
+}
+
+const createEmptyStorage = (): ComboStorage => ({ items: {} });
 
 function getStorageKey(channel: string): string {
-  return `combo-overlay-v3-${channel.toLowerCase()}`;
+  return `combo-overlay-v4-${channel.toLowerCase()}`;
 }
 
-export function useComboStorage(channel: string) {
+function getOrCreateItem(items: Record<string, ItemData>, id: string): ItemData {
+  return items[id] || createEmptyItemData();
+}
+
+export function useComboStorage(channel: string, itemConfigs: ComboItemConfig[], timeOffset: number = 0) {
   const [data, setData] = useState<ComboStorage>(createEmptyStorage);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -71,13 +60,7 @@ export function useComboStorage(channel: string) {
       if (stored) {
         const parsed = JSON.parse(stored);
         setData({
-          hearts: parsed.hearts || [],
-          horselul: parsed.horselul || { total: 0, users: {} },
-          dinodance: parsed.dinodance || { total: 0, users: {} },
-          awww: parsed.awww || { total: 0, users: {} },
-          userHorses: parsed.userHorses || {},
-          userDinos: parsed.userDinos || {},
-          userAwwws: parsed.userAwwws || {},
+          items: parsed.items || {},
         });
       }
     } catch (err) {
@@ -98,192 +81,134 @@ export function useComboStorage(channel: string) {
     }
   }, [channel, data, isLoaded]);
 
-  // Check for horse shrinking/removal and heart expiry periodically
+  // Check for creature removal and falling redemption expiry
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Shared logic: shrink + remove for a creature type (horses or dinos)
-    const processCreatures = (
-      creatures: Record<string, UserHorseData>,
-      totals: { total: number; users: Record<string, number> },
-      now: number,
-    ) => {
-      let changed = false;
-      const updated = { ...creatures };
-      const toRemove: string[] = [];
+    const checkExpiry = () => {
+      const now = Date.now() + timeOffset;
 
-      for (const [username, creature] of Object.entries(updated)) {
-        const inactiveMs = now - creature.timestamp;
+      setData((prev) => {
+        let changed = false;
+        const newItems = { ...prev.items };
 
-        if (inactiveMs >= HORSE_REMOVE_MS) {
-          toRemove.push(username);
-          changed = true;
-          continue;
-        }
+        for (const [itemId, itemData] of Object.entries(newItems)) {
+          const config = itemConfigs.find((c) => c.id === itemId);
+          if (!config) continue;
 
-        if (inactiveMs >= HORSE_SHRINK_MS && creature.count > 1) {
-          const lastShrink = creature.lastShrinkAt || creature.timestamp;
-          const hoursSinceLastShrink = Math.floor((now - lastShrink) / HORSE_SHRINK_MS);
-          if (hoursSinceLastShrink > 0) {
-            const shrinksToApply = Math.min(hoursSinceLastShrink, creature.count - 1);
-            if (shrinksToApply > 0) {
-              updated[username] = { ...creature, count: creature.count - shrinksToApply, lastShrinkAt: now };
+          if (config.displayType === "creature") {
+            // Remove creatures past max lifetime
+            const creatures = { ...itemData.creatures };
+            const toRemove: string[] = [];
+
+            for (const [username, creature] of Object.entries(creatures)) {
+              if (now - creature.timestamp >= CREATURE_REMOVE_MS) {
+                toRemove.push(username);
+              }
+            }
+
+            if (toRemove.length > 0) {
               changed = true;
+              let totalToRemove = 0;
+              const newUsers = { ...itemData.users };
+
+              for (const username of toRemove) {
+                totalToRemove += itemData.users[username] || 0;
+                delete newUsers[username];
+                delete creatures[username];
+              }
+
+              newItems[itemId] = {
+                ...itemData,
+                total: Math.max(0, itemData.total - totalToRemove),
+                users: newUsers,
+                creatures,
+              };
+            }
+          }
+
+          if (config.displayType === "falling") {
+            const newRedemptions = itemData.redemptions.filter(
+              (r) => now - r.timestamp < FALLING_EXPIRY_MS
+            );
+            if (newRedemptions.length !== itemData.redemptions.length) {
+              changed = true;
+              newItems[itemId] = { ...itemData, redemptions: newRedemptions };
             }
           }
         }
-      }
 
-      let totalToRemove = 0;
-      const newUsers = { ...totals.users };
-      for (const username of toRemove) {
-        totalToRemove += totals.users[username] || 0;
-        delete newUsers[username];
-        delete updated[username];
-      }
-
-      return {
-        changed,
-        creatures: updated,
-        totals: { total: Math.max(0, totals.total - totalToRemove), users: newUsers },
-      };
-    };
-
-    const checkExpiry = () => {
-      const now = Date.now();
-
-      setData((prev) => {
-        const horseResult = processCreatures(prev.userHorses, prev.horselul, now);
-        const dinoResult = processCreatures(prev.userDinos, prev.dinodance, now);
-        const awwwResult = processCreatures(prev.userAwwws, prev.awww, now);
-
-        // Filter out expired hearts
-        const newHearts = prev.hearts.filter((h) => now - h.timestamp < HEART_EXPIRY_MS);
-        const heartsChanged = newHearts.length !== prev.hearts.length;
-
-        if (!horseResult.changed && !dinoResult.changed && !awwwResult.changed && !heartsChanged) return prev;
-
-        return {
-          ...prev,
-          hearts: newHearts,
-          horselul: horseResult.totals,
-          dinodance: dinoResult.totals,
-          awww: awwwResult.totals,
-          userHorses: horseResult.creatures,
-          userDinos: dinoResult.creatures,
-          userAwwws: awwwResult.creatures,
-        };
+        if (!changed) return prev;
+        return { items: newItems };
       });
     };
 
     checkExpiry();
     const interval = setInterval(checkExpiry, 1000);
     return () => clearInterval(interval);
-  }, [isLoaded]);
+  }, [isLoaded, itemConfigs, timeOffset]);
 
-  const addCombo = useCallback((type: ComboType, username: string) => {
-    const now = Date.now();
+  const addCombo = useCallback(
+    (itemId: string, username: string, color: string, corner: string = "bl") => {
+      const config = itemConfigs.find((c) => c.id === itemId);
+      if (!config) return;
 
-    setData((prev) => {
-      if (type === "heart") {
-        return {
-          ...prev,
-          hearts: [...prev.hearts, { username, timestamp: now }],
-        };
-      } else {
-        // horselul, dinodance, or awww — same structure
-        const key = type === "dinodance" ? "dinodance" : type === "awww" ? "awww" : "horselul";
-        const current = prev[key];
-        return {
-          ...prev,
-          [key]: {
-            total: current.total + 1,
-            users: {
-              ...current.users,
-              [username]: (current.users[username] || 0) + 1,
-            },
-          },
-        };
-      }
-    });
-  }, []);
+      setData((prev) => {
+        const items = { ...prev.items };
+        const item = { ...getOrCreateItem(items, itemId) };
+        const now = Date.now();
 
-  // Shared logic for adding/updating a creature (horse or dino)
-  const updateCreature = useCallback((
-    creatureKey: "userHorses" | "userDinos" | "userAwwws",
-    username: string,
-    color: string,
-    corner: string = "bl",
-  ) => {
-    setData((prev) => {
-      const creatures = prev[creatureKey] || {};
-      const existing = creatures[username];
-      const now = Date.now();
-      
-      if (existing) {
-        return {
-          ...prev,
-          [creatureKey]: {
-            ...creatures,
-            [username]: {
+        item.total = item.total + 1;
+        item.users = { ...item.users, [username]: (item.users[username] || 0) + 1 };
+
+        if (config.displayType === "falling") {
+          item.redemptions = [...item.redemptions, { username, timestamp: now }];
+        }
+
+        if (config.displayType === "creature") {
+          const creatures = { ...item.creatures };
+          const existing = creatures[username];
+
+          if (existing) {
+            // Compute current bonus (shrinks by 1 per hour)
+            const elapsed = (now - existing.bonusSince) / (60 * 60 * 1000);
+            const currentBonus = Math.max(0, existing.bonusUnits - elapsed);
+
+            creatures[username] = {
               ...existing,
               count: existing.count + 1,
               color: color || existing.color,
               timestamp: now,
-              lastShrinkAt: now,
-            },
-          },
-        };
-      } else {
-        let minX = 15;
-        let maxX = 85;
-        let minY = 55;
-        let maxY = 85;
+              bonusUnits: currentBonus + 1,
+              bonusSince: now,
+            };
+          } else {
+            let minX = 15, maxX = 85, minY = 55, maxY = 85;
+            if (corner === "bl") { minX = 35; maxY = 80; }
+            else if (corner === "br") { maxX = 65; maxY = 80; }
+            else if (corner === "tl") { minX = 35; }
+            else if (corner === "tr") { maxX = 65; }
 
-        if (corner === "bl") {
-          minX = 35;
-          maxY = 80;
-        } else if (corner === "br") {
-          maxX = 65;
-          maxY = 80;
-        } else if (corner === "tl") {
-          minX = 35;
-        } else if (corner === "tr") {
-          maxX = 65;
-        }
-
-        const x = minX + Math.random() * (maxX - minX);
-        const y = minY + Math.random() * (maxY - minY);
-
-        return {
-          ...prev,
-          [creatureKey]: {
-            ...creatures,
-            [username]: {
+            creatures[username] = {
               color: color || "#9147ff",
               count: 1,
-              x,
-              y,
+              x: minX + Math.random() * (maxX - minX),
+              y: minY + Math.random() * (maxY - minY),
               timestamp: now,
-              lastShrinkAt: now,
-            },
-          },
-        };
-      }
-    });
-  }, []);
+              bonusUnits: 0, // first redemption = 1x base, no bonus
+              bonusSince: now,
+            };
+          }
 
-  const updateUserHorse = useCallback((username: string, color: string, corner: string = "bl") => {
-    updateCreature("userHorses", username, color, corner);
-  }, [updateCreature]);
+          item.creatures = creatures;
+        }
 
-  const updateUserDino = useCallback((username: string, color: string, corner: string = "bl") => {
-    updateCreature("userDinos", username, color, corner);
-  }, [updateCreature]);
-
-  const updateUserAwww = useCallback((username: string, color: string, corner: string = "bl") => {
-    updateCreature("userAwwws", username, color, corner);
-  }, [updateCreature]);
+        items[itemId] = item;
+        return { items };
+      });
+    },
+    [itemConfigs]
+  );
 
   const clearStorage = useCallback(() => {
     setData(createEmptyStorage());
@@ -292,33 +217,19 @@ export function useComboStorage(channel: string) {
     }
   }, [channel]);
 
-  // Calculate hearts total from non-expired hearts
-  const heartsTotal = data.hearts.length;
-  
-  // Calculate hearts by user from non-expired hearts
-  const heartsByUser = data.hearts.reduce((acc, h) => {
-    acc[h.username] = (acc[h.username] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // Derived helpers
+  const getItemData = useCallback(
+    (itemId: string): ItemData => {
+      return data.items[itemId] || createEmptyItemData();
+    },
+    [data]
+  );
 
   return {
     data,
     isLoaded,
     addCombo,
-    updateUserHorse,
-    updateUserDino,
-    updateUserAwww,
     clearStorage,
-    heartsTotal,
-    heartsByUser,
-    horselulTotal: data.horselul.total,
-    horselulUsers: data.horselul.users,
-    userHorses: data.userHorses,
-    dinodanceTotal: data.dinodance.total,
-    dinodanceUsers: data.dinodance.users,
-    userDinos: data.userDinos,
-    awwwTotal: data.awww.total,
-    awwwUsers: data.awww.users,
-    userAwwws: data.userAwwws,
+    getItemData,
   };
 }

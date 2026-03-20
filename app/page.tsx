@@ -3,86 +3,79 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-
-const DEFAULT_HORSELUL_EMOTE_ID = "01FDTEQJJR000CM9KGHJPMM7N6";
-const DEFAULT_HEART_EMOTE_ID = "01HNK8DGF0000FG935RNS75APG";
-const DEFAULT_DINODANCE_EMOTE_ID = "01FN4MWV0000071FCSB63SBDBN";
-const DEFAULT_AWWW_EMOTE_ID = "01JZ1V2MEAAA7V2JN3AWRS5RSE";
-
-function get7TVUrl(emoteId: string): string {
-  return `https://cdn.7tv.app/emote/${emoteId}/4x.avif`;
-}
+import {
+  DEFAULT_ITEMS,
+  get7TVUrl,
+  serializeItems,
+  type ComboItemConfig,
+} from "@/types/combo";
 
 export default function SetupPage() {
   const router = useRouter();
-  
+
   const [channel, setChannel] = useState("");
-  const [horselulEmoteId, setHorselulEmoteId] = useState(DEFAULT_HORSELUL_EMOTE_ID);
-  const [heartEmoteId, setHeartEmoteId] = useState(DEFAULT_HEART_EMOTE_ID);
-  const [dinodanceEmoteId, setDinodanceEmoteId] = useState(DEFAULT_DINODANCE_EMOTE_ID);
-  const [awwwEmoteId, setAwwwEmoteId] = useState(DEFAULT_AWWW_EMOTE_ID);
+  const [items, setItems] = useState<ComboItemConfig[]>(DEFAULT_ITEMS);
+  const [emoteErrors, setEmoteErrors] = useState<Record<string, boolean>>({});
   const [devMode, setDevMode] = useState(false);
   const [showTotals, setShowTotals] = useState(true);
   const [showUsers, setShowUsers] = useState(false);
-  const [horselulError, setHorselulError] = useState(false);
-  const [heartError, setHeartError] = useState(false);
-  const [dinodanceError, setDinodanceError] = useState(false);
-  const [awwwError, setAwwwError] = useState(false);
   const [size, setSize] = useState(3);
   const [corner, setCorner] = useState<"bl" | "tl" | "br" | "tr">("bl");
   const [fallingHearts, setFallingHearts] = useState(true);
 
-  // Default dev mode based on environment
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
       setDevMode(true);
     }
   }, []);
 
-  const horselulUrl = get7TVUrl(horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID);
-  const heartUrl = get7TVUrl(heartEmoteId || DEFAULT_HEART_EMOTE_ID);
-  const dinodanceUrl = get7TVUrl(dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID);
-  const awwwUrl = get7TVUrl(awwwEmoteId || DEFAULT_AWWW_EMOTE_ID);
-  
+  const updateItem = (index: number, updates: Partial<ComboItemConfig>) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...updates } : item))
+    );
+    if (updates.emoteId !== undefined) {
+      setEmoteErrors((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { id: `item${Date.now()}`, name: "", emoteId: "", cost: 10, displayType: "creature", sizeScale: 1 },
+    ]);
+  };
+
+  const removeItem = (index: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const generatedUrl = channel
-    ? `/${channel}?emoteId=${horselulEmoteId || DEFAULT_HORSELUL_EMOTE_ID}&heartEmoteId=${heartEmoteId || DEFAULT_HEART_EMOTE_ID}&dinodanceEmoteId=${dinodanceEmoteId || DEFAULT_DINODANCE_EMOTE_ID}&awwwEmoteId=${awwwEmoteId || DEFAULT_AWWW_EMOTE_ID}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
+    ? `/${channel}?items=${serializeItems(items)}${showTotals ? "&showTotals=true" : ""}${showUsers ? "&showUsers=true" : ""}${size !== 3 ? `&size=${size}` : ""}${corner !== "bl" ? `&corner=${corner}` : ""}${!fallingHearts ? "&fallingHearts=false" : ""}${devMode ? "&dev=true" : ""}`
     : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (generatedUrl) {
-      router.push(generatedUrl);
-    }
+    if (generatedUrl) router.push(generatedUrl);
   };
 
   const handleCopyUrl = () => {
     if (generatedUrl) {
-      const fullUrl = window.location.origin + generatedUrl;
-      navigator.clipboard.writeText(fullUrl);
+      navigator.clipboard.writeText(window.location.origin + generatedUrl);
     }
   };
 
   return (
     <div className="min-h-screen overflow-y-auto bg-zinc-950 p-8">
       <div className="mx-auto w-full max-w-2xl">
-        {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-4xl font-bold text-white">
-            Combo Overlay
-          </h1>
-          <p className="text-zinc-400">
-            Configure your Twitch overlay for tracking combos
-          </p>
+          <h1 className="mb-2 text-4xl font-bold text-white">Combo Overlay</h1>
+          <p className="text-zinc-400">Configure your Twitch overlay for tracking combos</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Channel Name */}
           <div>
-            <label
-              htmlFor="channel"
-              className="mb-2 block text-sm font-medium text-zinc-300"
-            >
+            <label htmlFor="channel" className="mb-2 block text-sm font-medium text-zinc-300">
               Twitch Channel Name
             </label>
             <input
@@ -96,208 +89,143 @@ export default function SetupPage() {
             />
           </div>
 
-          {/* Emote Settings */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Horselul Emote */}
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-              <label
-                htmlFor="horselulEmoteId"
-                className="mb-2 block text-sm font-medium text-zinc-300"
+          {/* Combo Items */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-medium text-zinc-300">Combo Items</p>
+              <button
+                type="button"
+                onClick={addItem}
+                className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-500"
               >
-                Horselul Emote ID
-              </label>
-              <input
-                id="horselulEmoteId"
-                type="text"
-                value={horselulEmoteId}
-                onChange={(e) => {
-                  setHorselulEmoteId(e.target.value.trim());
-                  setHorselulError(false);
-                }}
-                placeholder={DEFAULT_HORSELUL_EMOTE_ID}
-                className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none transition-colors focus:border-purple-500"
-              />
-              <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
-                {!horselulError ? (
-                  <Image
-                    src={horselulUrl}
-                    alt="Horselul emote preview"
-                    width={64}
-                    height={64}
-                    className="object-contain"
-                    onError={() => setHorselulError(true)}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="text-center text-xs text-red-400">
-                    Failed to load
-                  </div>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">Falling objects</p>
+                + Add Item
+              </button>
             </div>
 
-            {/* Heart Emote */}
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-              <label
-                htmlFor="heartEmoteId"
-                className="mb-2 block text-sm font-medium text-zinc-300"
-              >
-                Heart Emote ID
-              </label>
-              <input
-                id="heartEmoteId"
-                type="text"
-                value={heartEmoteId}
-                onChange={(e) => {
-                  setHeartEmoteId(e.target.value.trim());
-                  setHeartError(false);
-                }}
-                placeholder={DEFAULT_HEART_EMOTE_ID}
-                className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none transition-colors focus:border-purple-500"
-              />
-              <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
-                {!heartError ? (
-                  <div className="relative h-16 w-16">
-                    <svg className="absolute h-0 w-0">
-                      <defs>
-                        <clipPath id="heart-clip-preview" clipPathUnits="objectBoundingBox">
-                          <path d="M0.5,0.15 C0.35,-0.05 0.05,0.05 0.05,0.35 C0.05,0.55 0.25,0.75 0.5,1 C0.75,0.75 0.95,0.55 0.95,0.35 C0.95,0.05 0.65,-0.05 0.5,0.15 Z" />
-                        </clipPath>
-                      </defs>
-                    </svg>
-                    <div
-                      className="h-full w-full"
-                      style={{ clipPath: "url(#heart-clip-preview)" }}
-                    >
-                      <Image
-                        src={heartUrl}
-                        alt="Heart emote preview"
-                        width={64}
-                        height={64}
-                        className="h-full w-full object-cover"
-                        onError={() => setHeartError(true)}
-                        unoptimized
+            <div className="space-y-4">
+              {items.map((item, index) => (
+                <div key={index} className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="flex-1 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs text-zinc-400">Name</label>
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => updateItem(index, { name: e.target.value })}
+                          placeholder="e.g. Horselul"
+                          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-zinc-400">ID (for IRC matching)</label>
+                        <input
+                          type="text"
+                          value={item.id}
+                          onChange={(e) => updateItem(index, { id: e.target.value.toLowerCase().replace(/\s/g, "") })}
+                          placeholder="e.g. horselul"
+                          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="ml-3 rounded-lg px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-900/30 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mb-3 grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">Cost (bits)</label>
+                      <input
+                        type="number"
+                        value={item.cost}
+                        onChange={(e) => updateItem(index, { cost: parseInt(e.target.value, 10) || 0 })}
+                        min="1"
+                        className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">Display Type</label>
+                      <select
+                        value={item.displayType}
+                        onChange={(e) => updateItem(index, { displayType: e.target.value as "creature" | "falling" })}
+                        className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                      >
+                        <option value="creature">Creature (physics)</option>
+                        <option value="falling">Falling</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">Size Scale</label>
+                      <input
+                        type="number"
+                        value={item.sizeScale}
+                        onChange={(e) => updateItem(index, { sizeScale: parseFloat(e.target.value) || 1 })}
+                        min="0.5"
+                        max="4"
+                        step="0.5"
+                        className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
                       />
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center text-xs text-red-400">
-                    Failed to load
+
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">7TV Emote ID</label>
+                    <input
+                      type="text"
+                      value={item.emoteId}
+                      onChange={(e) => updateItem(index, { emoteId: e.target.value.trim() })}
+                      placeholder="e.g. 01FDTEQJJR000CM9KGHJPMM7N6"
+                      className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                    />
+                    <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
+                      {item.emoteId && !emoteErrors[index] ? (
+                        <Image
+                          src={get7TVUrl(item.emoteId)}
+                          alt={`${item.name} emote preview`}
+                          width={64}
+                          height={64}
+                          className="object-contain"
+                          onError={() => setEmoteErrors((prev) => ({ ...prev, [index]: true }))}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="text-center text-xs text-zinc-500">
+                          {item.emoteId ? "Failed to load" : "Enter emote ID"}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">Counter icon (clipped)</p>
+                </div>
+              ))}
             </div>
 
-            {/* DinoDance Emote */}
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-              <label
-                htmlFor="dinodanceEmoteId"
-                className="mb-2 block text-sm font-medium text-zinc-300"
-              >
-                DinoDance Emote ID
-              </label>
-              <input
-                id="dinodanceEmoteId"
-                type="text"
-                value={dinodanceEmoteId}
-                onChange={(e) => {
-                  setDinodanceEmoteId(e.target.value.trim());
-                  setDinodanceError(false);
-                }}
-                placeholder={DEFAULT_DINODANCE_EMOTE_ID}
-                className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none transition-colors focus:border-purple-500"
-              />
-              <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
-                {!dinodanceError ? (
-                  <Image
-                    src={dinodanceUrl}
-                    alt="DinoDance emote preview"
-                    width={64}
-                    height={64}
-                    className="object-contain"
-                    onError={() => setDinodanceError(true)}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="text-center text-xs text-red-400">
-                    Failed to load
-                  </div>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">DinoDance creatures</p>
-            </div>
-
-            {/* Awww Emote */}
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-              <label
-                htmlFor="awwwEmoteId"
-                className="mb-2 block text-sm font-medium text-zinc-300"
-              >
-                Awww Emote ID
-              </label>
-              <input
-                id="awwwEmoteId"
-                type="text"
-                value={awwwEmoteId}
-                onChange={(e) => {
-                  setAwwwEmoteId(e.target.value.trim());
-                  setAwwwError(false);
-                }}
-                placeholder={DEFAULT_AWWW_EMOTE_ID}
-                className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 font-mono text-xs text-white placeholder-zinc-500 outline-none transition-colors focus:border-purple-500"
-              />
-              <div className="flex items-center justify-center rounded-lg bg-zinc-900 p-4">
-                {!awwwError ? (
-                  <Image
-                    src={awwwUrl}
-                    alt="Awww emote preview"
-                    width={64}
-                    height={64}
-                    className="object-contain"
-                    onError={() => setAwwwError(true)}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="text-center text-xs text-red-400">
-                    Failed to load
-                  </div>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">Awww creatures (2x size)</p>
-            </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              Copy the ID from a 7TV emote URL like{" "}
+              <code className="text-zinc-400">7tv.app/emotes/[ID]</code>. Items are matched by cost (most expensive first) when decomposing cheers.
+            </p>
           </div>
-
-          <p className="text-xs text-zinc-500">
-            Copy the ID from a 7TV emote URL like{" "}
-            <code className="text-zinc-400">7tv.app/emotes/[ID]</code>
-          </p>
 
           {/* Mode Options */}
           <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <p className="text-sm font-medium text-zinc-400">Combo Modes</p>
-
-            {/* Falling Hearts Toggle */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-white">Falling Hearts</p>
-                <p className="text-sm text-zinc-400">
-                  Hearts fall from top and disappear
-                </p>
+                <p className="text-sm text-zinc-400">Hearts fall from top and disappear</p>
               </div>
               <button
                 type="button"
                 onClick={() => setFallingHearts(!fallingHearts)}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
-                  fallingHearts ? "bg-purple-600" : "bg-zinc-600"
-                }`}
+                className={`relative h-7 w-12 rounded-full transition-colors ${fallingHearts ? "bg-purple-600" : "bg-zinc-600"}`}
               >
-                <span
-                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
-                    fallingHearts ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
+                <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${fallingHearts ? "translate-x-5" : "translate-x-0"}`} />
               </button>
             </div>
           </div>
@@ -305,60 +233,39 @@ export default function SetupPage() {
           {/* Display Options */}
           <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <p className="text-sm font-medium text-zinc-400">Display Options</p>
-            
-            {/* Show Totals Toggle */}
+
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-white">Show Totals</p>
-                <p className="text-sm text-zinc-400">
-                  Display combo counts with emotes
-                </p>
+                <p className="text-sm text-zinc-400">Display combo counts with emotes</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTotals(!showTotals)}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
-                  showTotals ? "bg-purple-600" : "bg-zinc-600"
-                }`}
+                className={`relative h-7 w-12 rounded-full transition-colors ${showTotals ? "bg-purple-600" : "bg-zinc-600"}`}
               >
-                <span
-                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
-                    showTotals ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
+                <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${showTotals ? "translate-x-5" : "translate-x-0"}`} />
               </button>
             </div>
 
-            {/* Show Users Toggle */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-white">Show Leaderboard</p>
-                <p className="text-sm text-zinc-400">
-                  Display who donated how many
-                </p>
+                <p className="text-sm text-zinc-400">Display who donated how many</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowUsers(!showUsers)}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
-                  showUsers ? "bg-purple-600" : "bg-zinc-600"
-                }`}
+                className={`relative h-7 w-12 rounded-full transition-colors ${showUsers ? "bg-purple-600" : "bg-zinc-600"}`}
               >
-                <span
-                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
-                    showUsers ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
+                <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${showUsers ? "translate-x-5" : "translate-x-0"}`} />
               </button>
             </div>
 
-            {/* Corner Position */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-white">Score Position</p>
-                <p className="text-sm text-zinc-400">
-                  Corner for stats display
-                </p>
+                <p className="text-sm text-zinc-400">Corner for stats display</p>
               </div>
               <select
                 value={corner}
@@ -372,13 +279,10 @@ export default function SetupPage() {
               </select>
             </div>
 
-            {/* Emote Size */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-white">Emote Size</p>
-                <p className="text-sm text-zinc-400">
-                  Overall size of falling emotes
-                </p>
+                <p className="text-sm text-zinc-400">Overall size of falling emotes</p>
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -397,9 +301,7 @@ export default function SetupPage() {
           {/* Generated URL */}
           {generatedUrl && (
             <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-              <p className="mb-2 text-sm font-medium text-zinc-400">
-                Overlay URL
-              </p>
+              <p className="mb-2 text-sm font-medium text-zinc-400">Overlay URL</p>
               <div className="flex gap-2">
                 <code className="flex-1 overflow-x-auto rounded-lg bg-zinc-900 px-3 py-2 text-sm text-green-400">
                   {generatedUrl}
@@ -415,7 +317,6 @@ export default function SetupPage() {
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={!channel}
@@ -425,7 +326,6 @@ export default function SetupPage() {
           </button>
         </form>
 
-        {/* Footer */}
         <p className="mt-8 text-center text-sm text-zinc-500">
           Add this URL as a Browser Source in OBS
         </p>
