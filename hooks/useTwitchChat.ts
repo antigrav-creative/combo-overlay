@@ -102,6 +102,7 @@ function fireCheerEvents(
 }
 
 // Process combo from parsed IRC tags (onetapgiftredeemed)
+// Fires the matched item first, then decomposes leftover bits into other items
 function processComboFromTags(
   tags: Record<string, string>,
   items: ComboItemConfig[],
@@ -116,17 +117,34 @@ function processComboFromTags(
   if (msgId === "onetapgiftredeemed" && bitsSpent && giftId) {
     const bits = parseInt(bitsSpent, 10);
     const giftLower = giftId.toLowerCase();
+    const username = displayName.toLowerCase();
+    const now = Date.now();
 
     // Match giftId against configured items
     const matchedItem = items.find((item) => item.id.toLowerCase() === giftLower);
     if (matchedItem) {
+      // Fire the matched item first
       onCombo({
         itemId: matchedItem.id,
-        username: displayName.toLowerCase(),
+        username,
         color,
-        bits,
-        timestamp: Date.now(),
+        bits: matchedItem.cost,
+        timestamp: now,
       });
+
+      // Decompose leftover bits into other items
+      const remaining = bits - matchedItem.cost;
+      if (remaining > 0) {
+        const decomposed = decomposeCheer(remaining, items);
+        for (const { itemId, count } of decomposed) {
+          const itemConfig = items.find((i) => i.id === itemId);
+          const itemCost = itemConfig?.cost ?? remaining;
+          for (let i = 0; i < count; i++) {
+            onCombo({ itemId, username, color, bits: itemCost, timestamp: now });
+          }
+        }
+      }
+
       return true;
     }
   }
