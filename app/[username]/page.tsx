@@ -4,9 +4,7 @@ import { useCallback, useState, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTwitchChat } from "@/hooks/useTwitchChat";
 import { useComboStorage } from "@/hooks/useComboStorage";
-import { FallingCounter } from "@/components/HeartsCounter";
 import { DevControls } from "@/components/DevControls";
-import { ComboStats, type ComboItemStats } from "@/components/ComboStats";
 import { PhysicsCreatures } from "@/components/UserHorses";
 import { FallingHearts, type HeartSpawnRequest } from "@/components/FallingHearts";
 import {
@@ -32,8 +30,6 @@ export default function OverlayPage() {
 
   const username = params.username as string;
   const isDevMode = searchParams.get("dev") === "true";
-  const showTotals = searchParams.get("showTotals") === "true";
-  const showUsers = searchParams.get("showUsers") === "true";
   const sizeParam = parseInt(searchParams.get("size") || "3", 10);
   const sizeMultiplier = SIZE_MULTIPLIERS[sizeParam] ?? 1;
   const corner = (searchParams.get("corner") || "bl") as CornerPosition;
@@ -149,21 +145,6 @@ export default function OverlayPage() {
   // Find the first falling item for FallingHearts
   const fallingItem = items.find((i) => i.displayType === "falling");
   const fallingImageUrl = fallingItem ? get7TVUrl(fallingItem.emoteId) : null;
-  const fallingTotal = fallingItem ? getItemData(fallingItem.id).total : 0;
-
-  // Build ComboStats items
-  const statsItems: ComboItemStats[] = items.map((item) => {
-    const data = getItemData(item.id);
-    return {
-      id: item.id,
-      name: item.name,
-      imageUrl: get7TVUrl(item.emoteId),
-      displayType: item.displayType,
-      total: item.displayType === "falling" ? data.redemptions.length : data.total,
-      users: data.users,
-    };
-  });
-
   // Build totals map for DevControls
   const itemTotals: Record<string, number> = {};
   for (const item of items) {
@@ -173,22 +154,7 @@ export default function OverlayPage() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      {(showTotals || showUsers) && (
-        <ComboStats
-          items={statsItems}
-          showTotals={showTotals}
-          showUsers={showUsers}
-          corner={corner}
-        />
-      )}
 
-      {!showTotals && !showUsers && fallingItem && fallingImageUrl && (
-        <FallingCounter
-          count={fallingTotal}
-          imageUrl={fallingImageUrl}
-          corner={corner}
-        />
-      )}
 
       <PhysicsCreatures
         groups={creatureGroups}

@@ -7,18 +7,8 @@ import type { UserCreatureData } from "@/hooks/useComboStorage";
 const SHRINK_RATE_MS = 60 * 60 * 1000; // 1 unit per hour
 
 const EMOTE_ASPECT_RATIO = 64 / 26; // width / height
-const UNIT_HEIGHT = 50; // height per 1x unit
+const UNIT_HEIGHT = 30; // height per 1x unit
 const EDGE_PADDING = 30;
-const BADGE_HEIGHT = 30;
-
-function getContrastColor(hexColor: string): string {
-  const hex = hexColor.replace(/^#/, "");
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? "#000000" : "#FFFFFF";
-}
 
 function hexToHue(hex: string): number {
   hex = hex.replace(/^#/, "");
@@ -42,10 +32,12 @@ function hexToHue(hex: string): number {
  * Compute the current visual multiplier for a creature.
  * Base = 1x, each redemption adds +1x, shrinks at 1x/hour, min 1x.
  */
+const MAX_MULTIPLIER = 3;
+
 function getCurrentMultiplier(bonusUnits: number | undefined, bonusSince: number | undefined, now: number): number {
-  if (bonusUnits == null || bonusSince == null) return 1;
+  if (bonusUnits == null || bonusSince == null) return 0;
   const elapsed = (now - bonusSince) / SHRINK_RATE_MS;
-  return 1 + Math.max(0, bonusUnits - elapsed);
+  return Math.min(MAX_MULTIPLIER, Math.max(0, bonusUnits - elapsed));
 }
 
 function getDimensionsForMultiplier(multiplier: number, sizeScale: number) {
@@ -55,7 +47,7 @@ function getDimensionsForMultiplier(multiplier: number, sizeScale: number) {
 }
 
 function getMinDimensions(sizeScale: number) {
-  return getDimensionsForMultiplier(1, sizeScale);
+  return getDimensionsForMultiplier(0, sizeScale);
 }
 
 /**
@@ -195,7 +187,7 @@ export function PhysicsCreatures({ groups, showBounds = false, timeOffset = 0 }:
         for (const [, cb] of bodiesRef.current) {
           const mult = getCurrentMultiplier(cb.bonusUnits, cb.bonusSince, now);
           const { width: currentW, height: currentH } = getDimensionsForMultiplier(mult, cb.sizeScale);
-          const targetBodyH = currentH + BADGE_HEIGHT;
+          const targetBodyH = currentH;
 
           // Only replace if changed by more than 10%
           if (Math.abs(targetBodyH - cb.lastBodyHeight) / cb.lastBodyHeight > 0.1) {
@@ -249,7 +241,7 @@ export function PhysicsCreatures({ groups, showBounds = false, timeOffset = 0 }:
 
       for (const [, cb] of bodiesRef.current) {
         // Use lastBodyHeight for positioning (matches current physics body)
-        const visualH = cb.lastBodyHeight - BADGE_HEIGHT;
+        const visualH = cb.lastBodyHeight;
         const visualW = visualH * EMOTE_ASPECT_RATIO;
         cb.element.style.transform = `translate(${cb.body.position.x - visualW / 2}px, ${cb.body.position.y - cb.lastBodyHeight / 2}px)`;
       }
@@ -329,13 +321,12 @@ export function PhysicsCreatures({ groups, showBounds = false, timeOffset = 0 }:
       for (const [username, data] of Object.entries(group.creatures || {})) {
         const key = `${groupIdx}:${username}`;
         const hue = hexToHue(data.color);
-        const textColor = getContrastColor(data.color);
         const existing = bodiesRef.current.get(key);
 
         // Compute current visual size from bonus model
         const currentMult = getCurrentMultiplier(data.bonusUnits, data.bonusSince, now);
         const { width: currentW, height: currentH } = getDimensionsForMultiplier(currentMult, scale);
-        const currentBodyH = currentH + BADGE_HEIGHT;
+        const currentBodyH = currentH;
 
         // Time remaining until bonus shrinks to 0 (reaches 1x base)
         const currentBonus = Math.max(0, currentMult - 1);
@@ -374,7 +365,7 @@ export function PhysicsCreatures({ groups, showBounds = false, timeOffset = 0 }:
             // New full size after the cheer
             const newMult = getCurrentMultiplier(data.bonusUnits, data.bonusSince, now);
             const { width: newW, height: newH } = getDimensionsForMultiplier(newMult, scale);
-            const newBodyH = newH + BADGE_HEIGHT;
+            const newBodyH = newH;
             const newBonus = Math.max(0, newMult - 1);
             const newRemainingMs = newBonus * SHRINK_RATE_MS;
 
@@ -421,12 +412,6 @@ export function PhysicsCreatures({ groups, showBounds = false, timeOffset = 0 }:
               imgEl.style.filter = `hue-rotate(${hue}deg) saturate(1.5) brightness(1.1)`;
               applyShrinkTransition(imgEl, newW, newH, minW, minH, newRemainingMs);
             }
-            const badge = existing.element.querySelector(".creature-badge") as HTMLDivElement;
-            if (badge) {
-              badge.style.backgroundColor = data.color;
-              badge.style.color = textColor;
-              badge.textContent = username;
-            }
           }
         } else {
           // New creature
@@ -457,25 +442,6 @@ export function PhysicsCreatures({ groups, showBounds = false, timeOffset = 0 }:
           img.className = "h-full w-full object-contain";
           imgContainer.appendChild(img);
           element.appendChild(imgContainer);
-
-          const badge = document.createElement("div");
-          badge.className = "creature-badge";
-          Object.assign(badge.style, {
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            marginTop: "4px",
-            whiteSpace: "nowrap",
-            borderRadius: "9999px",
-            padding: "4px 12px",
-            fontSize: "14px",
-            fontWeight: "bold",
-            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.3)",
-            backgroundColor: data.color,
-            color: textColor,
-          });
-          badge.textContent = username;
-          element.appendChild(badge);
 
           container.appendChild(element);
           bodiesRef.current.set(key, {

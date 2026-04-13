@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ComboItemConfig } from "@/types/combo";
 
-const CREATURE_REMOVE_MS = 12 * 60 * 60 * 1000; // 12 hours
 const FALLING_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 export interface UserCreatureData {
@@ -97,12 +96,14 @@ export function useComboStorage(channel: string, itemConfigs: ComboItemConfig[],
           if (!config) continue;
 
           if (config.displayType === "creature") {
-            // Remove creatures past max lifetime
+            // Remove creatures whose bonus has fully shrunk to 0
             const creatures = { ...itemData.creatures };
             const toRemove: string[] = [];
 
             for (const [username, creature] of Object.entries(creatures)) {
-              if (now - creature.timestamp >= CREATURE_REMOVE_MS) {
+              const elapsed = (now - creature.bonusSince) / (60 * 60 * 1000);
+              const remaining = creature.bonusUnits - elapsed;
+              if (remaining <= 0) {
                 toRemove.push(username);
               }
             }
@@ -195,7 +196,7 @@ export function useComboStorage(channel: string, itemConfigs: ComboItemConfig[],
               x: minX + Math.random() * (maxX - minX),
               y: minY + Math.random() * (maxY - minY),
               timestamp: now,
-              bonusUnits: 0, // first redemption = 1x base, no bonus
+              bonusUnits: 1, // starts at 1x, shrinks to 0 over 1 hour
               bonusSince: now,
             };
           }
